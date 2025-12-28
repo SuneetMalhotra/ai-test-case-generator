@@ -1,0 +1,28 @@
+{
+  "name": "ai-test-case-generator-backend",
+  "version": "1.0.0",
+  "description": "Backend server for AI Test Case Generator",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "axios": "^1.13.2",
+    "pdf-parse": "^1.1.1",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^22.14.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.8.2"
+  }
+}
