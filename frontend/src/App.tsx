@@ -141,164 +141,138 @@ const App: React.FC = () => {
     try {
       const lines = testCasesString.split('\n').filter(line => line.trim());
       const cases: TestCase[] = [];
-      
-      let currentCase: Partial<TestCase> | null = null;
-      let inSteps = false;
-      let inExpected = false;
-      let collectedSteps: string[] = [];
+      let inTable = false;
+      let tableHeaderFound = false;
       
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
         
-        // Match test case headers: "1. Title", "TC-001: Title", "TC-FUNC-001", "## Test Case 1", etc.
-        if (line.match(/^(\d+\.|TC-?[A-Z]*-?\d+|##?\s*Test\s+Case|Test\s+Case\s+\d+)/i)) {
-          if (currentCase) {
-            currentCase.steps = collectedSteps.length > 0 ? collectedSteps : ['No steps provided'];
-            cases.push(currentCase as TestCase);
-          }
-          
-          // Extract TC-ID and title
-          const tcIdMatch = line.match(/^(TC-[A-Z]+-\d+)/i);
-          const tcId = tcIdMatch ? tcIdMatch[1] : `TC-${cases.length + 1}`;
-          
-          const titleMatch = line.match(/(?:^\d+\.|^TC-?[A-Z]*-?\d+[:.]?\s*|##?\s*Test\s+Case\s+\d+[:.]?\s*|^\|\s*TC-[A-Z]+-\d+\s*\|\s*)(.+)/i);
-          const title = titleMatch ? titleMatch[1].trim().replace(/\|/g, '').trim() : line.replace(/^(\d+\.|TC-?[A-Z]*-?\d+|##?\s*Test\s+Case)/i, '').trim();
-          
-          // Detect type from TC-ID or title
-          let type: ScenarioType = 'functional';
-          const lowerLine = line.toLowerCase();
-          if (lowerLine.includes('tc-func') || lowerLine.includes('functional')) {
-            type = 'functional';
-          } else if (lowerLine.includes('tc-neg') || lowerLine.includes('negative') || lowerLine.includes('error') || lowerLine.includes('invalid')) {
-            type = 'negative';
-          } else if (lowerLine.includes('tc-edge') || lowerLine.includes('edge') || lowerLine.includes('boundary')) {
-            type = 'edge-case';
-          } else if (lowerLine.includes('tc-sec') || lowerLine.includes('security')) {
-            type = 'functional'; // Map security to functional for now
-          } else if (lowerLine.includes('tc-ui') || lowerLine.includes('ui/ux')) {
-            type = 'functional'; // Map UI/UX to functional for now
-          }
-          
-          currentCase = {
-            id: tcId,
-            title: title || `Test Case ${cases.length + 1}`,
-            type,
-            steps: [],
-            expectedResult: '',
-            priority: 'Medium' as const,
-          };
-          collectedSteps = [];
-          inSteps = false;
-          inExpected = false;
+        // Detect markdown table headers (## Functional Test Cases, etc.)
+        if (line.match(/^##\s+(Functional|Negative|Edge\s*Case|Security|UI\/UX)\s+Test\s+Cases?/i)) {
+          inTable = true;
+          tableHeaderFound = false;
+          continue;
         }
-        // Match "Steps:" or "Test Steps:" section
-        else if (line.match(/^Steps?:/i) && currentCase) {
-          inSteps = true;
-          inExpected = false;
-          const stepContent = line.replace(/^Steps?:/i, '').trim();
-          if (stepContent) {
-            collectedSteps.push(stepContent);
-          }
+        
+        // Detect markdown table separator row (|---|---|---|---|---|---|)
+        if (line.match(/^\|[\s\-:]+\|/)) {
+          tableHeaderFound = true;
+          continue;
         }
-        // Match "Expected Result:" or "Expected:" section
-        else if (line.match(/^Expected\s+(Result|Outcome)?:?/i) && currentCase) {
-          inSteps = false;
-          inExpected = true;
-          currentCase.expectedResult = line.replace(/^Expected\s+(Result|Outcome)?:?/i, '').trim();
-        }
-        // Match numbered steps (1., 2., etc.) or bullet points
-        else if (line.match(/^[\d\-•]\s+/) && currentCase) {
-          if (inSteps || !inExpected) {
-            collectedSteps.push(line.replace(/^[\d\-•]\s+/, '').trim());
-          }
-        }
-        // Match priority indicators
-        else if (line.match(/Priority:\s*(High|Medium|Low)/i) && currentCase) {
-          const priorityMatch = line.match(/Priority:\s*(High|Medium|Low)/i);
-          if (priorityMatch) {
-            currentCase.priority = priorityMatch[1] as 'High' | 'Medium' | 'Low';
-          }
-        }
-        // Match type indicators (including Security and UI/UX)
-        else if (line.match(/Type:\s*(Functional|Edge\s*Case|Negative|Security|UI\/UX)/i) && currentCase) {
-          const typeMatch = line.match(/Type:\s*(Functional|Edge\s*Case|Negative|Security|UI\/UX)/i);
-          if (typeMatch) {
-            const typeStr = typeMatch[1].toLowerCase();
-            if (typeStr.includes('edge')) {
-              currentCase.type = 'edge-case';
-            } else if (typeStr.includes('negative')) {
-              currentCase.type = 'negative';
-            } else if (typeStr.includes('security') || typeStr.includes('ui')) {
-              currentCase.type = 'functional'; // Map to functional for display
-            }
-          }
-        }
+        
         // Parse markdown table rows
-        else if (line.match(/^\|/) && currentCase) {
+        if (inTable && line.match(/^\|/) && tableHeaderFound) {
           const cells = line.split('|').map(c => c.trim()).filter(c => c && !c.match(/^[-:]+$/));
+          
+          // Expected format: | ID | Title | Type | Steps | Expected Result | Priority |
           if (cells.length >= 6) {
-            // Table row: | ID | Title | Type | Steps | Expected Result | Priority |
             const [id, title, typeStr, stepsStr, expectedStr, priorityStr] = cells;
-            if (id && id.match(/TC-/i)) {
-              currentCase.id = id;
-              currentCase.title = title || currentCase.title;
-              if (typeStr) {
-                const lowerType = typeStr.toLowerCase();
-                if (lowerType.includes('edge')) currentCase.type = 'edge-case';
-                else if (lowerType.includes('negative')) currentCase.type = 'negative';
+            
+            // Only process rows that have a TC-ID
+            if (id && id.match(/TC-[A-Z]+-\d+/i)) {
+              // Extract TC-ID
+              const tcId = id.trim();
+              
+              // Extract title
+              const testTitle = title.trim() || `Test Case ${cases.length + 1}`;
+              
+              // Determine type from TC-ID or Type column
+              let type: ScenarioType = 'functional';
+              const lowerId = tcId.toLowerCase();
+              const lowerType = typeStr ? typeStr.toLowerCase() : '';
+              
+              if (lowerId.includes('tc-func') || lowerType.includes('functional')) {
+                type = 'functional';
+              } else if (lowerId.includes('tc-neg') || lowerType.includes('negative')) {
+                type = 'negative';
+              } else if (lowerId.includes('tc-edge') || lowerType.includes('edge')) {
+                type = 'edge-case';
+              } else if (lowerId.includes('tc-sec') || lowerType.includes('security')) {
+                type = 'functional'; // Map security to functional for display
+              } else if (lowerId.includes('tc-ui') || lowerType.includes('ui')) {
+                type = 'functional'; // Map UI/UX to functional for display
               }
+              
+              // Parse steps (handle <br> tags and numbered lists)
+              let steps: string[] = [];
               if (stepsStr) {
-                collectedSteps = stepsStr.split(/[•\-\d+\.]/).map(s => s.trim()).filter(s => s.length > 0);
+                // Split by <br> tags first
+                const stepParts = stepsStr.split(/<br\s*\/?>/i).map(s => s.trim()).filter(s => s.length > 0);
+                
+                // If no <br> tags, try splitting by numbered patterns (1., 2., etc.)
+                if (stepParts.length === 1) {
+                  steps = stepsStr.split(/(?=\d+\.\s)/).map(s => s.trim()).filter(s => s.length > 0);
+                } else {
+                  steps = stepParts;
+                }
+                
+                // Clean up step text (remove leading numbers, bullets, etc.)
+                steps = steps.map(step => {
+                  return step.replace(/^\d+\.\s*/, '').replace(/^[-•]\s*/, '').trim();
+                }).filter(s => s.length > 0);
               }
-              if (expectedStr) {
-                currentCase.expectedResult = expectedStr;
-              }
+              
+              // Extract expected result
+              const expectedResult = expectedStr ? expectedStr.trim() : 'Verify the expected behavior';
+              
+              // Determine priority
+              let priority: 'High' | 'Medium' | 'Low' = 'Medium';
               if (priorityStr) {
                 const lowerPriority = priorityStr.toLowerCase();
-                if (lowerPriority.includes('high')) currentCase.priority = 'High';
-                else if (lowerPriority.includes('low')) currentCase.priority = 'Low';
-                else currentCase.priority = 'Medium';
+                if (lowerPriority.includes('high')) {
+                  priority = 'High';
+                } else if (lowerPriority.includes('low')) {
+                  priority = 'Low';
+                }
               }
+              
+              // Create test case
+              const testCase: TestCase = {
+                id: tcId,
+                title: testTitle,
+                type,
+                steps: steps.length > 0 ? steps : ['No steps provided'],
+                expectedResult,
+                priority,
+              };
+              
+              cases.push(testCase);
             }
           }
         }
-        // Collect content under Steps section
-        else if (inSteps && currentCase && line.length > 0) {
-          collectedSteps.push(line);
-        }
-        // Collect content under Expected Result section
-        else if (inExpected && currentCase && line.length > 0) {
-          currentCase.expectedResult += (currentCase.expectedResult ? ' ' : '') + line;
-        }
-        // If we have a current case and this looks like content (not a header), add as step
-        else if (currentCase && !line.match(/^(ID|Title|Type|Steps|Expected|Priority|Functional|Edge|Negative)/i) && line.length > 10) {
-          if (!inExpected && !inSteps) {
-            collectedSteps.push(line);
-          }
-        }
       }
       
-      // Push the last case
-      if (currentCase) {
-        currentCase.steps = collectedSteps.length > 0 ? collectedSteps : ['No steps provided'];
-        if (!currentCase.expectedResult) {
-          currentCase.expectedResult = 'Verify the expected behavior';
-        }
-        cases.push(currentCase as TestCase);
-      }
-      
-      // If we still have no cases but have content, create a fallback case
+      // If we still have no cases but have content, try fallback parsing
       if (cases.length === 0 && testCasesString.length > 50) {
-        console.warn('Could not parse test cases, creating fallback from raw content');
-        return [{
-          id: 'tc-1',
-          title: 'Generated Test Case',
-          type: 'functional',
-          steps: testCasesString.split('\n').filter(l => l.trim().length > 10).slice(0, 5),
-          expectedResult: 'Verify the expected behavior based on the PRD requirements',
-          priority: 'High',
-        }];
+        console.warn('Markdown table parsing returned empty, trying fallback parser');
+        // Try to find any TC-IDs in the text
+        const tcIdMatches = testCasesString.match(/TC-[A-Z]+-\d+/gi);
+        if (tcIdMatches && tcIdMatches.length > 0) {
+          // Create basic cases from found TC-IDs
+          tcIdMatches.forEach((tcId, idx) => {
+            cases.push({
+              id: tcId,
+              title: `Test Case ${idx + 1}`,
+              type: tcId.toLowerCase().includes('func') ? 'functional' : 
+                    tcId.toLowerCase().includes('neg') ? 'negative' : 
+                    tcId.toLowerCase().includes('edge') ? 'edge-case' : 'functional',
+              steps: ['Steps to be extracted from raw content'],
+              expectedResult: 'Verify the expected behavior based on the PRD requirements',
+              priority: 'High',
+            });
+          });
+        } else {
+          // Last resort: create a single case with raw content
+          return [{
+            id: 'tc-1',
+            title: 'Generated Test Case',
+            type: 'functional',
+            steps: testCasesString.split('\n').filter(l => l.trim().length > 10).slice(0, 5),
+            expectedResult: 'Verify the expected behavior based on the PRD requirements',
+            priority: 'High',
+          }];
+        }
       }
       
       return cases;
