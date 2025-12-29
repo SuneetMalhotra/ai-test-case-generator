@@ -94,35 +94,45 @@ async function generateTestCases(
 ): Promise<string> {
   const types = scenarioTypes ? scenarioTypes.split(',').map(t => t.trim()) : ['functional', 'edge-case', 'negative'];
   
-  const systemPrompt = `You are an expert QA Architect with 20+ years of experience. Your task is to analyze Product Requirement Documents (PRDs) and generate comprehensive, executable test cases organized by scenario type.
+  const systemPrompt = `You are a Principal SDET with 20+ years of experience. Your task is to analyze Product Requirement Documents (PRDs) and generate a comprehensive Test Suite.
 
-Generate test cases with the following structure:
-- Test ID (unique identifier like TC-001)
-- Title (clear, descriptive test case name)
-- Type (Functional, Edge Case, or Negative)
-- Steps (detailed step-by-step instructions, numbered)
-- Expected Result (what should happen)
-- Priority (High/Medium/Low based on business impact)
+### Output Requirements:
+1. **Grouping:** Group test cases by Type (Functional, Negative, Edge Case, Security, UI/UX).
+2. **Priority:** Assign High/Medium/Low based on business risk and impact.
+3. **Format:** Use Markdown Tables for each group with these exact columns:
+   | ID | Title | Type | Steps | Expected Result | Priority |
+4. **Detail Level:** 
+   - Use bullet points or numbered lists within the "Steps" column for readability.
+   - "Expected Result" must be assertive (e.g., "Verify...", "System must...", "User should...").
+   - Include TC-IDs following naming convention: \`TC-[Category]-[Number]\` (e.g., TC-FUNC-001, TC-NEG-001, TC-EDGE-001, TC-SEC-001, TC-UI-001).
 
-Organize test cases into three categories:
-1. FUNCTIONAL: Test cases that verify the system works as specified
-2. EDGE CASE: Test cases for boundary conditions, unusual inputs, and limits
-3. NEGATIVE: Test cases that verify proper error handling and invalid inputs`;
+### Test Case Categories:
+- **FUNCTIONAL:** Verify core functionality works as specified in the PRD
+- **NEGATIVE:** Verify proper error handling, validation, and rejection of invalid inputs
+- **EDGE CASE:** Test boundary conditions, maximum/minimum values, and unusual but valid inputs
+- **SECURITY:** Test authentication, authorization, data protection, and security vulnerabilities
+- **UI/UX:** Test user interface elements, accessibility, responsiveness, and user experience flows
+
+### Formatting Rules:
+- If steps are long, use clear numbered lists or bullet points within the table cell
+- Each test case must be complete and executable
+- Expected results must be specific and measurable
+- Priority should reflect business risk (High = critical path, Medium = important features, Low = nice-to-have)`;
 
   const formatInstructions = format === 'table'
-    ? `Format the output as a structured table with columns: ID, Title, Type, Steps, Expected Result, Priority. Group by Type (Functional, Edge Case, Negative).`
-    : `Format the output as Gherkin (BDD) scenarios with Given-When-Then syntax. Include Feature, Scenario, Given, When, Then, And, But keywords. Group scenarios by type.`;
+    ? `Format the output as Markdown tables grouped by Type. Each group should have a header like "## Functional Test Cases" followed by a table with columns: | ID | Title | Type | Steps | Expected Result | Priority |. Use bullet points or numbered lists within the Steps column for readability.`
+    : `Format the output as Gherkin (BDD) scenarios with Given-When-Then syntax. Include Feature, Scenario, Given, When, Then, And, But keywords. Group scenarios by type (Functional, Negative, Edge Case, Security, UI/UX).`;
 
   const scenarioTypeInstructions = types.map(type => {
     if (type === 'functional') {
-      return 'FUNCTIONAL: Generate 5-7 test cases that verify core functionality works as specified in the PRD.';
+      return 'FUNCTIONAL: Generate 5-10 test cases that verify core functionality works as specified in the PRD. Use TC-FUNC-001, TC-FUNC-002, etc.';
     } else if (type === 'edge-case') {
-      return 'EDGE CASE: Generate 3-5 test cases for boundary conditions, maximum/minimum values, and unusual but valid inputs.';
+      return 'EDGE CASE: Generate 3-7 test cases for boundary conditions, maximum/minimum values, and unusual but valid inputs. Use TC-EDGE-001, TC-EDGE-002, etc.';
     } else if (type === 'negative') {
-      return 'NEGATIVE: Generate 3-5 test cases that verify proper error handling, validation, and rejection of invalid inputs.';
+      return 'NEGATIVE: Generate 3-7 test cases that verify proper error handling, validation, and rejection of invalid inputs. Use TC-NEG-001, TC-NEG-002, etc.';
     }
     return '';
-  }).filter(Boolean).join('\n');
+  }).filter(Boolean).join('\n') + '\n\nAdditionally, generate:\n- SECURITY: 2-5 test cases for authentication, authorization, and data protection (TC-SEC-001, etc.)\n- UI/UX: 2-5 test cases for user interface, accessibility, and user experience (TC-UI-001, etc.)';
 
   const userPrompt = `Analyze the following PRD and generate a comprehensive Test Suite:
 
