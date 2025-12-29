@@ -1,4 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+export const config = {
+  maxDuration: 60,
+};
+
 import { OpenAI } from 'openai';
 import axios from 'axios';
 import pdfParse from 'pdf-parse';
@@ -263,4 +268,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
-

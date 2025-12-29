@@ -1,4 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+export const config = {
+  maxDuration: 10,
+};
 import axios from 'axios';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
