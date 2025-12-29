@@ -89,27 +89,40 @@ async function extractTextFromMarkdown(filePath: string): Promise<string> {
  */
 async function generateTestCases(
   prdContent: string,
-  format: 'table' | 'gherkin'
+  format: 'table' | 'gherkin',
+  scenarioTypes?: string
 ): Promise<string> {
-  const systemPrompt = `You are an expert QA Architect with 20+ years of experience. Your task is to analyze Product Requirement Documents (PRDs) and generate comprehensive, executable test cases.
+  const types = scenarioTypes ? scenarioTypes.split(',').map(t => t.trim()) : ['functional', 'edge-case', 'negative'];
+  
+  const systemPrompt = `You are an expert QA Architect with 20+ years of experience. Your task is to analyze Product Requirement Documents (PRDs) and generate comprehensive, executable test cases organized by scenario type.
 
 Generate test cases with the following structure:
-- Test ID (unique identifier)
+- Test ID (unique identifier like TC-001)
 - Title (clear, descriptive test case name)
-- Steps (detailed step-by-step instructions)
+- Type (Functional, Edge Case, or Negative)
+- Steps (detailed step-by-step instructions, numbered)
 - Expected Result (what should happen)
 - Priority (High/Medium/Low based on business impact)
 
-Focus on:
-- Functional test cases
-- Edge cases
-- Negative test scenarios
-- Boundary conditions
-- Integration points`;
+Organize test cases into three categories:
+1. FUNCTIONAL: Test cases that verify the system works as specified
+2. EDGE CASE: Test cases for boundary conditions, unusual inputs, and limits
+3. NEGATIVE: Test cases that verify proper error handling and invalid inputs`;
 
   const formatInstructions = format === 'table'
-    ? `Format the output as a structured table with columns: ID, Title, Steps, Expected Result, Priority.`
-    : `Format the output as Gherkin (BDD) scenarios with Given-When-Then syntax. Include Feature, Scenario, Given, When, Then, And, But keywords.`;
+    ? `Format the output as a structured table with columns: ID, Title, Type, Steps, Expected Result, Priority. Group by Type (Functional, Edge Case, Negative).`
+    : `Format the output as Gherkin (BDD) scenarios with Given-When-Then syntax. Include Feature, Scenario, Given, When, Then, And, But keywords. Group scenarios by type.`;
+
+  const scenarioTypeInstructions = types.map(type => {
+    if (type === 'functional') {
+      return 'FUNCTIONAL: Generate 5-7 test cases that verify core functionality works as specified in the PRD.';
+    } else if (type === 'edge-case') {
+      return 'EDGE CASE: Generate 3-5 test cases for boundary conditions, maximum/minimum values, and unusual but valid inputs.';
+    } else if (type === 'negative') {
+      return 'NEGATIVE: Generate 3-5 test cases that verify proper error handling, validation, and rejection of invalid inputs.';
+    }
+    return '';
+  }).filter(Boolean).join('\n');
 
   const userPrompt = `Analyze the following PRD and generate comprehensive test cases in ${format === 'table' ? 'table format' : 'Gherkin BDD format'}:
 
@@ -117,7 +130,9 @@ ${prdContent}
 
 ${formatInstructions}
 
-Generate at least 10-15 test cases covering all major features and edge cases.`;
+${scenarioTypeInstructions}
+
+Generate test cases organized by type. Each test case should be clearly labeled with its type.`;
 
   try {
     const response = await axios.post(
@@ -166,6 +181,7 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
     }
 
     const format = (req.body.format as 'table' | 'gherkin') || 'table';
+    const scenarioTypes = req.body.scenarioTypes || 'functional,edge-case,negative';
     const filePath = req.file.path;
     const fileMime = req.file.mimetype;
 
@@ -181,7 +197,7 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
     await fs.unlink(filePath).catch(console.error);
 
     // Generate test cases
-    const testCases = await generateTestCases(prdContent, format);
+    const testCases = await generateTestCases(prdContent, format, scenarioTypes);
 
     res.json({
       success: true,
