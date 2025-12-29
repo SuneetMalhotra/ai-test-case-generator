@@ -3,7 +3,6 @@ import { useDropzone } from 'react-dropzone';
 import {
   Upload,
   FileText,
-  CheckCircle2,
   Loader2,
   Download,
   Settings,
@@ -111,7 +110,7 @@ const App: React.FC = () => {
           id: 'tc-raw',
           title: 'Generated Test Cases (Raw Format)',
           type: 'functional',
-          steps: data.testCases.split('\n').filter(l => l.trim().length > 0).slice(0, 20),
+          steps: data.testCases.split('\n').filter((l: string) => l.trim().length > 0).slice(0, 20),
           expectedResult: 'Review the generated test cases above',
           priority: 'High',
         }]);
@@ -284,7 +283,7 @@ const App: React.FC = () => {
             id: 'tc-1',
             title: 'Generated Test Case',
             type: 'functional',
-            steps: testCasesString.split('\n').filter(l => l.trim().length > 10).slice(0, 5),
+            steps: testCasesString.split('\n').filter((l: string) => l.trim().length > 10).slice(0, 5),
             expectedResult: 'Verify the expected behavior based on the PRD requirements',
             priority: 'High',
           }];

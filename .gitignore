@@ -51,3 +51,5 @@ frontend/dist/
 frontend/.vite/
 
 
+.vercel
+.env*.local
