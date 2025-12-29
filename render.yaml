@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-test-case-generator
+    env: node
+    buildCommand: npm run install:all && npm run build
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: OLLAMA_HOST
+        value: http://localhost:11434
+      - key: OLLAMA_MODEL
+        value: qwen2.5-coder:7b
