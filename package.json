@@ -12,6 +12,7 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "start": "cd backend && npm start",
+    "start:production": "bash scripts/setup-ollama.sh && cd backend && PORT=${PORT:-3001} npm start",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "test": "vitest",
     "test:watch": "vitest --watch",

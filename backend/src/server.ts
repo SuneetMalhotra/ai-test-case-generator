@@ -23,7 +23,8 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gpt-oss:20b';
+// Use llama3.1:8b for Railway (smaller, faster, cheaper) or gpt-oss:20b for local
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || (process.env.NODE_ENV === 'production' ? 'llama3.1:8b' : 'gpt-oss:20b');
 
 // Middleware
 app.use(cors());
@@ -290,7 +291,8 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+  console.log(`🚀 Backend server running on port ${PORT}`);
   console.log(`📡 Ollama configured: ${OLLAMA_HOST} (model: ${OLLAMA_MODEL})`);
+  console.log(`🌐 Health check available at: http://localhost:${PORT}/api/health`);
 });
 
