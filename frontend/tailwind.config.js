@@ -7,22 +7,10 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Match portfolio site color scheme
         primary: {
-          50: '#fdf2f8',
-          100: '#fce7f3',
-          200: '#fbcfe8',
-          300: '#f9a8d4',
-          400: '#f472b6',
-          500: '#E91E63', // Tinder-style pink/rose
-          600: '#db2777',
-          700: '#be185d',
-          800: '#9f1239',
-          900: '#831843',
-        },
-        rose: {
-          500: '#E91E63',
-          600: '#d81b60',
-          700: '#c2185b',
+          400: '#60a5fa', // blue-400 for links
+          500: '#3b82f6', // blue-500
         },
       },
     },

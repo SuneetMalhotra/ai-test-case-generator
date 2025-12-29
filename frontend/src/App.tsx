@@ -8,13 +8,14 @@ import {
   Download,
   Settings,
   X,
-  Heart,
+  LayoutDashboard,
   FolderOpen,
   FileCheck,
   MessageSquare,
   Sparkles,
   Plus,
   AlertCircle,
+  Brain,
 } from 'lucide-react';
 import { exportToCSV } from './utils/csvExport';
 
@@ -38,7 +39,7 @@ interface Document {
 }
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'matches' | 'documents' | 'test-cases' | 'messages' | 'settings'>('matches');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'documents' | 'test-cases' | 'messages' | 'settings'>('dashboard');
   const [aiProvider, setAiProvider] = useState<AIProvider>('ollama');
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -162,7 +163,7 @@ const App: React.FC = () => {
   };
 
   const sidebarItems = [
-    { id: 'matches', label: 'Matches', icon: Heart, count: testCases.length },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, count: null },
     { id: 'documents', label: 'Documents', icon: FolderOpen, count: totalDocuments },
     { id: 'test-cases', label: 'Test Cases', icon: FileCheck, count: totalTestCases },
     { id: 'messages', label: 'Messages', icon: MessageSquare, count: 0 },
@@ -170,13 +171,13 @@ const App: React.FC = () => {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-black flex">
       {/* Sidebar Navigation */}
-      <div className="w-64 bg-white shadow-sm border-r border-gray-200 flex flex-col">
-        <div className="p-6 border-b border-gray-200">
+      <div className="w-64 bg-black border-r border-gray-800 flex flex-col">
+        <div className="p-6 border-b border-gray-800">
           <div className="flex items-center gap-2">
-            <Sparkles className="text-rose-500" size={24} />
-            <h1 className="text-xl font-bold text-gray-900">Testcase Generator</h1>
+            <Sparkles className="text-blue-400" size={24} />
+            <h1 className="text-xl font-semibold text-white">Test Case Generator</h1>
           </div>
         </div>
 
@@ -190,8 +191,8 @@ const App: React.FC = () => {
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-rose-50 text-rose-600 font-medium'
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-gray-900 text-white font-medium border border-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-900'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -200,7 +201,7 @@ const App: React.FC = () => {
                 </div>
                 {item.count !== null && item.count > 0 && (
                   <span className={`text-xs px-2 py-1 rounded-full ${
-                    isActive ? 'bg-rose-500 text-white' : 'bg-gray-200 text-gray-700'
+                    isActive ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-300'
                   }`}>
                     {item.count}
                   </span>
@@ -214,9 +215,9 @@ const App: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4">
-          <h2 className="text-2xl font-semibold text-gray-900">
-            {activeTab === 'matches' && 'Find Your Match'}
+        <header className="bg-black border-b border-gray-800 px-8 py-4">
+          <h2 className="text-2xl font-light text-white">
+            {activeTab === 'dashboard' && 'AI Test Case Generator'}
             {activeTab === 'documents' && 'Documents'}
             {activeTab === 'test-cases' && 'Test Cases'}
             {activeTab === 'messages' && 'Messages'}
@@ -225,44 +226,44 @@ const App: React.FC = () => {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-8 overflow-y-auto">
-          {activeTab === 'matches' && (
+        <main className="flex-1 p-8 overflow-y-auto bg-black">
+          {activeTab === 'dashboard' && (
             <div className="max-w-6xl mx-auto space-y-8">
               {/* Dashboard Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-600">Total Documents</h3>
-                    <FolderOpen className="text-gray-400" size={20} />
+                    <h3 className="text-sm font-medium text-gray-400">Total Documents</h3>
+                    <FolderOpen className="text-gray-600" size={20} />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900">{totalDocuments}</p>
+                  <p className="text-3xl font-light text-white">{totalDocuments}</p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-600">Total Test Cases</h3>
-                    <FileCheck className="text-gray-400" size={20} />
+                    <h3 className="text-sm font-medium text-gray-400">Total Test Cases</h3>
+                    <FileCheck className="text-gray-600" size={20} />
                   </div>
-                  <p className="text-3xl font-bold text-gray-900">{totalTestCases}</p>
+                  <p className="text-3xl font-light text-white">{totalTestCases}</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-rose-500 to-pink-600 rounded-lg shadow-sm p-6 text-white">
+                <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-white/90">AI Test Generation</h3>
-                    <Sparkles size={20} />
+                    <h3 className="text-sm font-medium text-gray-400">AI Test Generation</h3>
+                    <Sparkles className="text-blue-400" size={20} />
                   </div>
-                  <p className="text-3xl font-bold">Ready</p>
-                  <p className="text-sm text-white/80 mt-2">Upload a PRD to start</p>
+                  <p className="text-3xl font-light text-white">Ready</p>
+                  <p className="text-sm text-gray-400 mt-2">Upload a PRD to start</p>
                 </div>
               </div>
 
-              {/* Find Your Match Section */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Find Your Match</h3>
+              {/* Generator Section */}
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-8">
+                <h3 className="text-xl font-light text-white mb-6">Generate Test Cases</h3>
 
                 {/* AI Provider Toggle */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-gray-400 mb-3">
                     AI Provider
                   </label>
                   <div className="flex gap-4">
@@ -270,8 +271,8 @@ const App: React.FC = () => {
                       onClick={() => setAiProvider('ollama')}
                       className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
                         aiProvider === 'ollama'
-                          ? 'border-rose-500 bg-rose-50 text-rose-700 font-medium'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
+                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
                       }`}
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -283,8 +284,8 @@ const App: React.FC = () => {
                       onClick={() => setAiProvider('openai')}
                       className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
                         aiProvider === 'openai'
-                          ? 'border-rose-500 bg-rose-50 text-rose-700 font-medium'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
+                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
                       }`}
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -300,29 +301,29 @@ const App: React.FC = () => {
                   {...getRootProps()}
                   className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${
                     isDragActive
-                      ? 'border-rose-500 bg-rose-50'
-                      : 'border-gray-300 hover:border-rose-400 hover:bg-gray-50'
+                      ? 'border-blue-400 bg-gray-800'
+                      : 'border-gray-800 hover:border-gray-700 hover:bg-gray-800'
                   } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <input {...getInputProps()} />
                   {isGenerating ? (
                     <div className="flex flex-col items-center">
-                      <Loader2 className="animate-spin text-rose-500 mb-4" size={48} />
-                      <p className="text-lg font-medium text-gray-900">Generating test cases...</p>
-                      <p className="text-sm text-gray-500 mt-2">
+                      <Loader2 className="animate-spin text-blue-400 mb-4" size={48} />
+                      <p className="text-lg font-medium text-white">Generating test cases...</p>
+                      <p className="text-sm text-gray-400 mt-2">
                         AI is analyzing your document and creating scenarios
                       </p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center">
-                      <div className="bg-rose-500 rounded-full p-4 mb-4">
-                        <Upload className="text-white" size={32} />
+                      <div className="bg-gray-800 border border-gray-700 rounded-full p-4 mb-4">
+                        <Upload className="text-blue-400" size={32} />
                       </div>
-                      <p className="text-lg font-medium text-gray-900 mb-2">
+                      <p className="text-lg font-medium text-white mb-2">
                         {isDragActive ? 'Drop your PRD here' : 'Drag & drop your PRD file here'}
                       </p>
-                      <p className="text-sm text-gray-500 mb-4">or click to browse</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-sm text-gray-400 mb-4">or click to browse</p>
+                      <p className="text-xs text-gray-500">
                         Supports PDF, Markdown, and Text files (max 10MB)
                       </p>
                     </div>
@@ -330,14 +331,14 @@ const App: React.FC = () => {
                 </div>
 
                 {uploadedFile && !isGenerating && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+                  <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <FileText className="text-rose-500" size={20} />
-                      <span className="text-sm text-gray-700">{uploadedFile.name}</span>
+                      <FileText className="text-blue-400" size={20} />
+                      <span className="text-sm text-gray-300">{uploadedFile.name}</span>
                     </div>
                     <button
                       onClick={() => setUploadedFile(null)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="text-gray-500 hover:text-gray-300"
                     >
                       <X size={18} />
                     </button>
@@ -345,9 +346,9 @@ const App: React.FC = () => {
                 )}
 
                 {error && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-                    <AlertCircle className="text-red-500" size={20} />
-                    <p className="text-sm text-red-700">{error}</p>
+                  <div className="mt-4 p-4 bg-red-900/20 border border-red-800 rounded-lg flex items-center gap-3">
+                    <AlertCircle className="text-red-400" size={20} />
+                    <p className="text-sm text-red-300">{error}</p>
                   </div>
                 )}
               </div>
@@ -357,13 +358,13 @@ const App: React.FC = () => {
           {activeTab === 'documents' && (
             <div className="max-w-6xl mx-auto">
               {totalDocuments === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                  <FolderOpen className="mx-auto text-gray-400 mb-4" size={48} />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Documents Yet</h3>
-                  <p className="text-gray-500 mb-6">Upload your first PRD to get started</p>
+                <div className="bg-gray-900 rounded-lg border border-gray-800 p-12 text-center">
+                  <FolderOpen className="mx-auto text-gray-600 mb-4" size={48} />
+                  <h3 className="text-lg font-medium text-white mb-2">No Documents Yet</h3>
+                  <p className="text-gray-400 mb-6">Upload your first PRD to get started</p>
                   <button
-                    onClick={() => setActiveTab('matches')}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-rose-500 text-white font-medium rounded-lg hover:bg-rose-600 transition-colors"
+                    onClick={() => setActiveTab('dashboard')}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black font-medium rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     <Plus size={20} />
                     Upload Document
@@ -374,20 +375,20 @@ const App: React.FC = () => {
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 flex items-center justify-between hover:shadow-md transition-shadow"
+                      className="bg-gray-900 rounded-lg border border-gray-800 p-6 flex items-center justify-between hover:border-gray-700 transition-colors"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="bg-rose-50 rounded-lg p-3">
-                          <FileText className="text-rose-500" size={24} />
+                        <div className="bg-gray-800 rounded-lg p-3 border border-gray-800">
+                          <FileText className="text-blue-400" size={24} />
                         </div>
                         <div>
-                          <h3 className="font-medium text-gray-900">{doc.name}</h3>
-                          <p className="text-sm text-gray-500">
+                          <h3 className="font-medium text-white">{doc.name}</h3>
+                          <p className="text-sm text-gray-400">
                             {doc.testCasesCount} test cases • {doc.uploadedAt.toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      <button className="text-rose-500 hover:text-rose-600">
+                      <button className="text-gray-400 hover:text-blue-400 transition-colors">
                         <Download size={20} />
                       </button>
                     </div>
@@ -400,13 +401,13 @@ const App: React.FC = () => {
           {activeTab === 'test-cases' && (
             <div className="max-w-6xl mx-auto">
               {totalTestCases === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                  <FileCheck className="mx-auto text-gray-400 mb-4" size={48} />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Test Cases Yet</h3>
-                  <p className="text-gray-500 mb-6">Generate test cases from your PRD documents</p>
+                <div className="bg-gray-900 rounded-lg border border-gray-800 p-12 text-center">
+                  <FileCheck className="mx-auto text-gray-600 mb-4" size={48} />
+                  <h3 className="text-lg font-medium text-white mb-2">No Test Cases Yet</h3>
+                  <p className="text-gray-400 mb-6">Generate test cases from your PRD documents</p>
                   <button
-                    onClick={() => setActiveTab('matches')}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-rose-500 text-white font-medium rounded-lg hover:bg-rose-600 transition-colors"
+                    onClick={() => setActiveTab('dashboard')}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black font-medium rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     <Plus size={20} />
                     Generate Test Cases
@@ -415,12 +416,12 @@ const App: React.FC = () => {
               ) : (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-light text-white">
                       {totalTestCases} Test Cases Generated
                     </h3>
                     <button
                       onClick={handleExportCSV}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-rose-500 text-white font-medium rounded-lg hover:bg-rose-600 transition-colors"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-white text-black font-medium rounded-lg hover:bg-gray-200 transition-colors"
                     >
                       <Download size={18} />
                       Export CSV
@@ -431,27 +432,27 @@ const App: React.FC = () => {
                     {testCases.map((testCase) => (
                       <div
                         key={testCase.id}
-                        className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                        className="bg-gray-900 rounded-lg border border-gray-800 p-6"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div>
-                            <h4 className="font-semibold text-gray-900 mb-1">{testCase.title}</h4>
+                            <h4 className="font-medium text-white mb-1">{testCase.title}</h4>
                             <div className="flex items-center gap-3">
                               <span className={`text-xs px-2 py-1 rounded-full ${
                                 testCase.type === 'functional'
-                                  ? 'bg-blue-100 text-blue-700'
+                                  ? 'bg-blue-900/30 text-blue-400 border border-blue-800'
                                   : testCase.type === 'edge-case'
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-red-100 text-red-700'
+                                  ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-800'
+                                  : 'bg-red-900/30 text-red-400 border border-red-800'
                               }`}>
                                 {testCase.type.replace('-', ' ').toUpperCase()}
                               </span>
                               <span className={`text-xs px-2 py-1 rounded-full ${
                                 testCase.priority === 'High'
-                                  ? 'bg-red-100 text-red-700'
+                                  ? 'bg-red-900/30 text-red-400 border border-red-800'
                                   : testCase.priority === 'Medium'
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-gray-100 text-gray-700'
+                                  ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-800'
+                                  : 'bg-gray-800 text-gray-400 border border-gray-700'
                               }`}>
                                 {testCase.priority} Priority
                               </span>
@@ -461,16 +462,16 @@ const App: React.FC = () => {
 
                         <div className="space-y-3">
                           <div>
-                            <h5 className="text-sm font-medium text-gray-700 mb-2">Steps:</h5>
-                            <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
+                            <h5 className="text-sm font-medium text-gray-400 mb-2">Steps:</h5>
+                            <ol className="list-decimal list-inside space-y-1 text-sm text-gray-300">
                               {testCase.steps.map((step, idx) => (
                                 <li key={idx}>{step}</li>
                               ))}
                             </ol>
                           </div>
                           <div>
-                            <h5 className="text-sm font-medium text-gray-700 mb-1">Expected Result:</h5>
-                            <p className="text-sm text-gray-600">{testCase.expectedResult}</p>
+                            <h5 className="text-sm font-medium text-gray-400 mb-1">Expected Result:</h5>
+                            <p className="text-sm text-gray-300">{testCase.expectedResult}</p>
                           </div>
                         </div>
                       </div>
@@ -483,37 +484,37 @@ const App: React.FC = () => {
 
           {activeTab === 'messages' && (
             <div className="max-w-6xl mx-auto">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <MessageSquare className="mx-auto text-gray-400 mb-4" size={48} />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Messages</h3>
-                <p className="text-gray-500">Messages feature coming soon</p>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-12 text-center">
+                <MessageSquare className="mx-auto text-gray-600 mb-4" size={48} />
+                <h3 className="text-lg font-medium text-white mb-2">No Messages</h3>
+                <p className="text-gray-400">Messages feature coming soon</p>
               </div>
             </div>
           )}
 
           {activeTab === 'settings' && (
             <div className="max-w-4xl mx-auto">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Settings</h3>
+              <div className="bg-gray-900 rounded-lg border border-gray-800 p-8">
+                <h3 className="text-xl font-light text-white mb-6">Settings</h3>
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
                       Default AI Provider
                     </label>
                     <select
                       value={aiProvider}
                       onChange={(e) => setAiProvider(e.target.value as AIProvider)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500"
+                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
                     >
                       <option value="ollama">Ollama (Local LLM)</option>
                       <option value="openai">OpenAI (GPT)</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-400 mb-2">
                       Export Format
                     </label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500">
+                    <select className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-400 focus:border-blue-400">
                       <option value="table">Standard Table</option>
                       <option value="gherkin">Gherkin (BDD)</option>
                     </select>
