@@ -60,14 +60,30 @@ const App: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('format', 'table');
-      formData.append('scenarioTypes', 'functional,edge-case,negative');
+      // Convert file to base64 for Vercel serverless functions
+      const reader = new FileReader();
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
 
       const response = await fetch('/api/generate', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          file: fileBase64,
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          format: 'table',
+          scenarioTypes: 'functional,edge-case,negative',
+        }),
       });
 
       if (!response.ok) {

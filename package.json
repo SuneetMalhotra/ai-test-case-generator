@@ -12,7 +12,6 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "start": "cd backend && npm start",
-    "start:production": "bash scripts/setup-ollama.sh && cd backend && PORT=${PORT:-3001} npm start",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "test": "vitest",
     "test:watch": "vitest --watch",
@@ -35,12 +34,14 @@
     "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "openai": "^4.104.0",
+    "pdf-parse": "^2.4.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
+    "@vercel/node": "^5.5.16",
     "concurrently": "^8.2.2",
     "eslint": "^8.57.0",
     "prettier": "^3.2.5",
@@ -49,4 +50,3 @@
     "vitest": "^1.6.0"
   }
 }
-
