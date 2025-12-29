@@ -6,6 +6,7 @@ export const config = {
 
 import { OpenAI } from 'openai';
 import axios from 'axios';
+// @ts-ignore - pdf-parse has ESM export issues
 import pdfParse from 'pdf-parse';
 import { Buffer } from 'buffer';
 
