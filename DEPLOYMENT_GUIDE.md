@@ -307,3 +307,4 @@ After deployment, test:
 - Check Node.js version (needs 18+)
 - Verify all dependencies install correctly
 - Check build logs in platform dashboard
+

@@ -16,3 +16,4 @@ export abstract class BaseParser<T> implements Parser<T> {
     }
   }
 }
+

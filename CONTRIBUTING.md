@@ -30,3 +30,4 @@ Follow conventional commits:
 - `docs:` Documentation changes
 - `refactor:` Code refactoring
 - `test:` Test additions/changes
+

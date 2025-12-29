@@ -48,3 +48,4 @@ EXPOSE 3001
 # Start Ollama and backend
 WORKDIR /app/backend
 CMD ["sh", "-c", "ollama serve & sleep 5 && ollama pull qwen2.5-coder:7b && node dist/server.js"]
+

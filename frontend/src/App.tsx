@@ -46,6 +46,7 @@ const App: React.FC = () => {
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [rawTestCases, setRawTestCases] = useState<string | null>(null);
 
   const totalDocuments = documents.length;
   const totalTestCases = testCases.length;
@@ -76,9 +77,31 @@ const App: React.FC = () => {
 
       const data = await response.json();
       
+      // Store raw response for debugging/fallback
+      setRawTestCases(data.testCases || null);
+      
+      // Debug: Log the raw response
+      console.log('Raw test cases response:', data.testCases);
+      console.log('Response length:', data.testCases?.length || 0);
+      
       // Parse test cases from response
       const parsedTestCases = parseTestCases(data.testCases);
-      setTestCases(parsedTestCases);
+      console.log('Parsed test cases:', parsedTestCases);
+      
+      if (parsedTestCases.length === 0 && data.testCases && data.testCases.trim().length > 0) {
+        // If parsing failed but we have content, create a fallback case with raw content
+        console.warn('Parser returned empty, but we have test cases content. Creating fallback.');
+        setTestCases([{
+          id: 'tc-raw',
+          title: 'Generated Test Cases (Raw Format)',
+          type: 'functional',
+          steps: data.testCases.split('\n').filter(l => l.trim().length > 0).slice(0, 20),
+          expectedResult: 'Review the generated test cases above',
+          priority: 'High',
+        }]);
+      } else {
+        setTestCases(parsedTestCases);
+      }
       
       // Add document to list
       const newDoc: Document = {
@@ -110,41 +133,177 @@ const App: React.FC = () => {
   });
 
   const parseTestCases = (testCasesString: string): TestCase[] => {
-    // Parse the test cases string into structured TestCase objects
-    // This is a simplified parser - you may need to adjust based on your backend response
+    if (!testCasesString || typeof testCasesString !== 'string') {
+      console.error('Invalid test cases string:', testCasesString);
+      return [];
+    }
+
     try {
       const lines = testCasesString.split('\n').filter(line => line.trim());
       const cases: TestCase[] = [];
       
       let currentCase: Partial<TestCase> | null = null;
-      for (const line of lines) {
-        if (line.match(/^\d+\.|^TC-\d+/i)) {
-          if (currentCase) cases.push(currentCase as TestCase);
+      let inSteps = false;
+      let inExpected = false;
+      let collectedSteps: string[] = [];
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        // Match test case headers: "1. Title", "TC-001: Title", "TC-FUNC-001", "## Test Case 1", etc.
+        if (line.match(/^(\d+\.|TC-?[A-Z]*-?\d+|##?\s*Test\s+Case|Test\s+Case\s+\d+)/i)) {
+          if (currentCase) {
+            currentCase.steps = collectedSteps.length > 0 ? collectedSteps : ['No steps provided'];
+            cases.push(currentCase as TestCase);
+          }
+          
+          // Extract TC-ID and title
+          const tcIdMatch = line.match(/^(TC-[A-Z]+-\d+)/i);
+          const tcId = tcIdMatch ? tcIdMatch[1] : `TC-${cases.length + 1}`;
+          
+          const titleMatch = line.match(/(?:^\d+\.|^TC-?[A-Z]*-?\d+[:.]?\s*|##?\s*Test\s+Case\s+\d+[:.]?\s*|^\|\s*TC-[A-Z]+-\d+\s*\|\s*)(.+)/i);
+          const title = titleMatch ? titleMatch[1].trim().replace(/\|/g, '').trim() : line.replace(/^(\d+\.|TC-?[A-Z]*-?\d+|##?\s*Test\s+Case)/i, '').trim();
+          
+          // Detect type from TC-ID or title
+          let type: ScenarioType = 'functional';
+          const lowerLine = line.toLowerCase();
+          if (lowerLine.includes('tc-func') || lowerLine.includes('functional')) {
+            type = 'functional';
+          } else if (lowerLine.includes('tc-neg') || lowerLine.includes('negative') || lowerLine.includes('error') || lowerLine.includes('invalid')) {
+            type = 'negative';
+          } else if (lowerLine.includes('tc-edge') || lowerLine.includes('edge') || lowerLine.includes('boundary')) {
+            type = 'edge-case';
+          } else if (lowerLine.includes('tc-sec') || lowerLine.includes('security')) {
+            type = 'functional'; // Map security to functional for now
+          } else if (lowerLine.includes('tc-ui') || lowerLine.includes('ui/ux')) {
+            type = 'functional'; // Map UI/UX to functional for now
+          }
+          
           currentCase = {
-            id: `tc-${cases.length + 1}`,
-            title: line.replace(/^\d+\.\s*|^TC-\d+\s*/i, '').trim(),
-            type: 'functional' as ScenarioType,
+            id: tcId,
+            title: title || `Test Case ${cases.length + 1}`,
+            type,
             steps: [],
             expectedResult: '',
             priority: 'Medium' as const,
           };
-        } else if (currentCase && line.toLowerCase().includes('step')) {
-          currentCase.steps?.push(line.trim());
-        } else if (currentCase && line.toLowerCase().includes('expected')) {
-          currentCase.expectedResult = line.replace(/expected\s*:?/i, '').trim();
+          collectedSteps = [];
+          inSteps = false;
+          inExpected = false;
+        }
+        // Match "Steps:" or "Test Steps:" section
+        else if (line.match(/^Steps?:/i) && currentCase) {
+          inSteps = true;
+          inExpected = false;
+          const stepContent = line.replace(/^Steps?:/i, '').trim();
+          if (stepContent) {
+            collectedSteps.push(stepContent);
+          }
+        }
+        // Match "Expected Result:" or "Expected:" section
+        else if (line.match(/^Expected\s+(Result|Outcome)?:?/i) && currentCase) {
+          inSteps = false;
+          inExpected = true;
+          currentCase.expectedResult = line.replace(/^Expected\s+(Result|Outcome)?:?/i, '').trim();
+        }
+        // Match numbered steps (1., 2., etc.) or bullet points
+        else if (line.match(/^[\d\-•]\s+/) && currentCase) {
+          if (inSteps || !inExpected) {
+            collectedSteps.push(line.replace(/^[\d\-•]\s+/, '').trim());
+          }
+        }
+        // Match priority indicators
+        else if (line.match(/Priority:\s*(High|Medium|Low)/i) && currentCase) {
+          const priorityMatch = line.match(/Priority:\s*(High|Medium|Low)/i);
+          if (priorityMatch) {
+            currentCase.priority = priorityMatch[1] as 'High' | 'Medium' | 'Low';
+          }
+        }
+        // Match type indicators (including Security and UI/UX)
+        else if (line.match(/Type:\s*(Functional|Edge\s*Case|Negative|Security|UI\/UX)/i) && currentCase) {
+          const typeMatch = line.match(/Type:\s*(Functional|Edge\s*Case|Negative|Security|UI\/UX)/i);
+          if (typeMatch) {
+            const typeStr = typeMatch[1].toLowerCase();
+            if (typeStr.includes('edge')) {
+              currentCase.type = 'edge-case';
+            } else if (typeStr.includes('negative')) {
+              currentCase.type = 'negative';
+            } else if (typeStr.includes('security') || typeStr.includes('ui')) {
+              currentCase.type = 'functional'; // Map to functional for display
+            }
+          }
+        }
+        // Parse markdown table rows
+        else if (line.match(/^\|/) && currentCase) {
+          const cells = line.split('|').map(c => c.trim()).filter(c => c && !c.match(/^[-:]+$/));
+          if (cells.length >= 6) {
+            // Table row: | ID | Title | Type | Steps | Expected Result | Priority |
+            const [id, title, typeStr, stepsStr, expectedStr, priorityStr] = cells;
+            if (id && id.match(/TC-/i)) {
+              currentCase.id = id;
+              currentCase.title = title || currentCase.title;
+              if (typeStr) {
+                const lowerType = typeStr.toLowerCase();
+                if (lowerType.includes('edge')) currentCase.type = 'edge-case';
+                else if (lowerType.includes('negative')) currentCase.type = 'negative';
+              }
+              if (stepsStr) {
+                collectedSteps = stepsStr.split(/[•\-\d+\.]/).map(s => s.trim()).filter(s => s.length > 0);
+              }
+              if (expectedStr) {
+                currentCase.expectedResult = expectedStr;
+              }
+              if (priorityStr) {
+                const lowerPriority = priorityStr.toLowerCase();
+                if (lowerPriority.includes('high')) currentCase.priority = 'High';
+                else if (lowerPriority.includes('low')) currentCase.priority = 'Low';
+                else currentCase.priority = 'Medium';
+              }
+            }
+          }
+        }
+        // Collect content under Steps section
+        else if (inSteps && currentCase && line.length > 0) {
+          collectedSteps.push(line);
+        }
+        // Collect content under Expected Result section
+        else if (inExpected && currentCase && line.length > 0) {
+          currentCase.expectedResult += (currentCase.expectedResult ? ' ' : '') + line;
+        }
+        // If we have a current case and this looks like content (not a header), add as step
+        else if (currentCase && !line.match(/^(ID|Title|Type|Steps|Expected|Priority|Functional|Edge|Negative)/i) && line.length > 10) {
+          if (!inExpected && !inSteps) {
+            collectedSteps.push(line);
+          }
         }
       }
-      if (currentCase) cases.push(currentCase as TestCase);
       
-      return cases.length > 0 ? cases : [{
-        id: 'tc-1',
-        title: 'Sample Test Case',
-        type: 'functional',
-        steps: ['Step 1', 'Step 2'],
-        expectedResult: 'Expected result',
-        priority: 'High',
-      }];
-    } catch {
+      // Push the last case
+      if (currentCase) {
+        currentCase.steps = collectedSteps.length > 0 ? collectedSteps : ['No steps provided'];
+        if (!currentCase.expectedResult) {
+          currentCase.expectedResult = 'Verify the expected behavior';
+        }
+        cases.push(currentCase as TestCase);
+      }
+      
+      // If we still have no cases but have content, create a fallback case
+      if (cases.length === 0 && testCasesString.length > 50) {
+        console.warn('Could not parse test cases, creating fallback from raw content');
+        return [{
+          id: 'tc-1',
+          title: 'Generated Test Case',
+          type: 'functional',
+          steps: testCasesString.split('\n').filter(l => l.trim().length > 10).slice(0, 5),
+          expectedResult: 'Verify the expected behavior based on the PRD requirements',
+          priority: 'High',
+        }];
+      }
+      
+      return cases;
+    } catch (error) {
+      console.error('Error parsing test cases:', error);
       return [];
     }
   };
@@ -463,19 +622,34 @@ const App: React.FC = () => {
                         <div className="space-y-3">
                           <div>
                             <h5 className="text-sm font-medium text-gray-400 mb-2">Steps:</h5>
-                            <ol className="list-decimal list-inside space-y-1 text-sm text-gray-300">
-                              {testCase.steps.map((step, idx) => (
-                                <li key={idx}>{step}</li>
-                              ))}
-                            </ol>
+                            {testCase.steps && testCase.steps.length > 0 ? (
+                              <ol className="list-decimal list-inside space-y-1 text-sm text-gray-300">
+                                {testCase.steps.map((step, idx) => (
+                                  <li key={idx}>{step}</li>
+                                ))}
+                              </ol>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No steps provided</p>
+                            )}
                           </div>
                           <div>
                             <h5 className="text-sm font-medium text-gray-400 mb-1">Expected Result:</h5>
-                            <p className="text-sm text-gray-300">{testCase.expectedResult}</p>
+                            <p className="text-sm text-gray-300">{testCase.expectedResult || 'Not specified'}</p>
                           </div>
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Show raw content if parsing failed */}
+                    {rawTestCases && testCases.length === 0 && (
+                      <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
+                        <h4 className="font-medium text-white mb-4">Raw Generated Content</h4>
+                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono bg-gray-800 p-4 rounded border border-gray-700 max-h-96 overflow-y-auto">
+                          {rawTestCases}
+                        </pre>
+                        <p className="text-xs text-gray-500 mt-2">Note: Unable to parse test cases. Showing raw LLM output.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -530,3 +704,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+

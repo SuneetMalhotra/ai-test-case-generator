@@ -73,3 +73,4 @@ npm start
 - Check file size (max 10MB)
 - Verify file type (PDF, Markdown, or Text)
 - Check backend logs for errors
+

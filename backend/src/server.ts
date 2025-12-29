@@ -23,7 +23,7 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gpt-oss:20b';
 
 // Middleware
 app.use(cors());
@@ -124,7 +124,7 @@ Organize test cases into three categories:
     return '';
   }).filter(Boolean).join('\n');
 
-  const userPrompt = `Analyze the following PRD and generate comprehensive test cases in ${format === 'table' ? 'table format' : 'Gherkin BDD format'}:
+  const userPrompt = `Analyze the following PRD and generate a comprehensive Test Suite:
 
 ${prdContent}
 
@@ -132,7 +132,14 @@ ${formatInstructions}
 
 ${scenarioTypeInstructions}
 
-Generate test cases organized by type. Each test case should be clearly labeled with its type.`;
+### Critical Requirements:
+- Generate test cases organized by Type (Functional, Negative, Edge Case, Security, UI/UX)
+- Use Markdown table format with exact columns: | ID | Title | Type | Steps | Expected Result | Priority |
+- TC-IDs must follow convention: TC-[Category]-[Number]
+- Steps should use bullet points or numbered lists for clarity
+- Expected Results must be assertive and specific
+- Priority should reflect business risk (High/Medium/Low)
+- Ensure comprehensive coverage of all PRD requirements`;
 
   try {
     const response = await axios.post(
@@ -164,6 +171,9 @@ Generate test cases organized by type. Each test case should be clearly labeled 
     return response.data.message?.content || '';
   } catch (error) {
     if (axios.isAxiosError(error)) {
+      if (error.response?.status === 404) {
+        throw new Error(`Model "${OLLAMA_MODEL}" not found. Please run: ollama pull ${OLLAMA_MODEL}. Available models: Check with "ollama list"`);
+      }
       throw new Error(`Ollama API error: ${error.message}. Is Ollama running at ${OLLAMA_HOST}?`);
     }
     throw error;
@@ -198,6 +208,15 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
 
     // Generate test cases
     const testCases = await generateTestCases(prdContent, format, scenarioTypes);
+    
+    // Debug logging
+    console.log('Generated test cases length:', testCases.length);
+    console.log('First 500 chars of test cases:', testCases.substring(0, 500));
+    if (!testCases || testCases.trim().length === 0) {
+      console.error('WARNING: Generated test cases is empty!');
+      console.log('PRD content length:', prdContent.length);
+      console.log('PRD content preview:', prdContent.substring(0, 200));
+    }
 
     res.json({
       success: true,
@@ -264,3 +283,4 @@ app.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`);
   console.log(`📡 Ollama configured: ${OLLAMA_HOST} (model: ${OLLAMA_MODEL})`);
 });
+

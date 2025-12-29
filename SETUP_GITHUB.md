@@ -59,3 +59,4 @@ git push -u origin main
 - Configure Dependabot for dependency updates
 - Add issue templates
 - Add pull request template
+

@@ -13,3 +13,4 @@ services:
         value: http://localhost:11434
       - key: OLLAMA_MODEL
         value: qwen2.5-coder:7b
+
