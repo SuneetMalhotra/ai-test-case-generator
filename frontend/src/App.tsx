@@ -46,6 +46,7 @@ const App: React.FC = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [rawTestCases, setRawTestCases] = useState<string | null>(null);
+  const [accessPassword, setAccessPassword] = useState<string>('');
 
   const totalDocuments = documents.length;
   const totalTestCases = testCases.length;
@@ -70,6 +71,10 @@ const App: React.FC = () => {
         reader.readAsDataURL(file);
       });
 
+      if (!accessPassword) {
+        throw new Error('Access password is required. Please enter the password to generate test cases.');
+      }
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -82,15 +87,31 @@ const App: React.FC = () => {
           fileSize: file.size,
           format: 'table',
           scenarioTypes: 'functional,edge-case,negative',
+          password: accessPassword,
         }),
       });
 
+      // Get response text first to handle non-JSON responses
+      const responseText = await response.text();
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to generate test cases');
+        let errorMessage = 'Failed to generate test cases';
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = responseText || `Server returned ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      // Parse JSON response
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid response from server: ${responseText.substring(0, 100)}`);
+      }
       
       // Store raw response for debugging/fallback
       setRawTestCases(data.testCases || null);
@@ -409,38 +430,34 @@ const App: React.FC = () => {
               <div className="bg-gray-900 rounded-lg border border-gray-800 p-8">
                 <h3 className="text-xl font-light text-white mb-6">Generate Test Cases</h3>
 
-                {/* AI Provider Toggle */}
+                {/* Access Password */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-400 mb-3">
-                    AI Provider
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Access Password <span className="text-red-400">*</span>
                   </label>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => setAiProvider('ollama')}
-                      className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
-                        aiProvider === 'ollama'
-                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
-                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <Brain size={18} />
-                        <span>Ollama (Local LLM)</span>
+                  <input
+                    type="password"
+                    value={accessPassword}
+                    onChange={(e) => setAccessPassword(e.target.value)}
+                    placeholder="Enter password to generate test cases"
+                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                    disabled={isGenerating}
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Password required. Free tier: 1 generation per hour per IP address.
+                  </p>
+                </div>
+
+                {/* AI Provider Info */}
+                <div className="mb-6">
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="text-blue-400" size={20} />
+                      <div>
+                        <p className="text-sm font-medium text-white">Google Gemini AI</p>
+                        <p className="text-xs text-gray-400">Powered by Gemini Pro model</p>
                       </div>
-                    </button>
-                    <button
-                      onClick={() => setAiProvider('openai')}
-                      className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
-                        aiProvider === 'openai'
-                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
-                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <Sparkles size={18} />
-                        <span>OpenAI (GPT)</span>
-                      </div>
-                    </button>
+                    </div>
                   </div>
                 </div>
 

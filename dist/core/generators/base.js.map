@@ -1,0 +1,1 @@
+{"version":3,"file":"base.js","sourceRoot":"","sources":["../../../src/core/generators/base.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAUH,MAAM,OAAgB,aAAa;IACvB,SAAS,CAAY;IAE/B,YAAY,SAAoB;QAC9B,IAAI,CAAC,SAAS,GAAG,SAAS,CAAC;IAC7B,CAAC;IAIS,iBAAiB,CAAC,OAAyB;QACnD,OAAO,iDAAiD,OAAO,CAAC,SAAS;wDACrB,OAAO,CAAC,QAAQ;SAC/D,OAAO,CAAC,SAAS,oDAAoD,CAAC;IAC7E,CAAC;CACF"}

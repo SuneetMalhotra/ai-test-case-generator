@@ -1,0 +1,10 @@
+{
+  "name": "netlify-functions",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "openai": "^4.104.0",
+    "axios": "^1.13.2",
+    "pdf-parse": "^2.4.5"
+  }
+}
