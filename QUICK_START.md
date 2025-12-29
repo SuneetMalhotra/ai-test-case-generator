@@ -74,3 +74,4 @@ npm start
 - Verify file type (PDF, Markdown, or Text)
 - Check backend logs for errors
 
+

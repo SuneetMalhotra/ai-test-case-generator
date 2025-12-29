@@ -194,3 +194,4 @@ MIT License - see [LICENSE](./LICENSE) file.
 **Deployed on**: Vercel (serverless functions)
 
 **AI Models**: gpt-4o-mini (OpenAI), gemini-pro (Google), llama3.1:8b (Ollama)
+

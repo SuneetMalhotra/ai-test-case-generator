@@ -147,3 +147,4 @@ Vercel Pro plan allows up to 60s timeout. For longer generations:
 ## 🎉 That's It!
 
 Your app is now live on Vercel with hybrid AI support!
+
