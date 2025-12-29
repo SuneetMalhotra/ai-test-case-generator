@@ -6,7 +6,7 @@ export const config = {
 
 import { OpenAI } from 'openai';
 import axios from 'axios';
-import pdfParse from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 import { Buffer } from 'buffer';
 
 // Hybrid AI Configuration
