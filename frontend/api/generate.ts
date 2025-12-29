@@ -6,7 +6,7 @@ export const config = {
 
 import { OpenAI } from 'openai';
 import axios from 'axios';
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 import { Buffer } from 'buffer';
 
 // Hybrid AI Configuration
@@ -25,7 +25,7 @@ const useOllama = !useOpenAI && !useGemini;
  */
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const data = await pdfParse(buffer);
+    const data = await (pdfParse as any)(buffer);
     return data.text;
   } catch (error) {
     throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : String(error)}`);
