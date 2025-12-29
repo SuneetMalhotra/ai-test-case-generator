@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run install:all && npm run build:frontend",
+  "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "installCommand": "npm run install:all",
   "routes": [
@@ -15,7 +15,6 @@
   ],
   "functions": {
     "api/*.ts": {
-      "runtime": "nodejs20.x",
       "maxDuration": 60
     }
   }
