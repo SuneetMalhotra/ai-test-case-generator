@@ -9,10 +9,19 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
 
+// Rate limiting configuration
+export const config = {
+  rateLimit: {
+    windowLimit: 5,
+    windowSize: 60,
+    aggregateBy: ["ip"]
+  }
+};
+
 // Simple in-memory rate limiting (resets on function restart)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
-const MAX_REQUESTS_PER_HOUR = 1; // 1 free generation per hour per IP
+const RATE_LIMIT_WINDOW = 60 * 1000; // 60 seconds
+const MAX_REQUESTS_PER_WINDOW = 5; // 5 requests per 60 seconds per IP
 
 // CORS headers
 const corsHeaders = {
@@ -224,11 +233,11 @@ function checkRateLimit(clientIp: string): { allowed: boolean; message?: string 
     return { allowed: true };
   }
 
-  if (userLimit.count >= MAX_REQUESTS_PER_HOUR) {
-    const minutesLeft = Math.ceil((userLimit.resetTime - now) / (60 * 1000));
+  if (userLimit.count >= MAX_REQUESTS_PER_WINDOW) {
+    const secondsLeft = Math.ceil((userLimit.resetTime - now) / 1000);
     return {
       allowed: false,
-      message: `Rate limit exceeded. You have used your free generation. Please wait ${minutesLeft} minute(s) before trying again.`
+      message: `Rate limit exceeded. You've reached the generation limit (${MAX_REQUESTS_PER_WINDOW} requests per minute). Please wait ${secondsLeft} second(s) before trying again.`
     };
   }
 

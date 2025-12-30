@@ -102,6 +102,20 @@ const App: React.FC = () => {
       }
       
       if (!response.ok) {
+        // Handle rate limiting (429) with user-friendly message
+        if (response.status === 429) {
+          let rateLimitMessage = "Slow down! You've reached the generation limit. Please wait a minute before trying again.";
+          try {
+            const errorData = JSON.parse(responseText);
+            if (errorData.message) {
+              rateLimitMessage = errorData.message;
+            }
+          } catch (e) {
+            // Use default message if parsing fails
+          }
+          throw new Error(rateLimitMessage);
+        }
+        
         let errorMessage = 'Failed to generate test cases';
         try {
           const errorData = JSON.parse(responseText);
