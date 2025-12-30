@@ -272,6 +272,8 @@ function checkRateLimit(clientIp: string): { allowed: boolean; message?: string 
 }
 
 export const handler = async (event: any, context: any) => {
+  const startTime = Date.now();
+  
   // Handle CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -292,9 +294,25 @@ export const handler = async (event: any, context: any) => {
     };
   }
 
+  // Wrap everything in try-catch to prevent 502 errors
   try {
+    // Early validation: Check if body exists
+    if (!event.body) {
+      return {
+        statusCode: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Missing request body',
+          message: 'No file or content provided in the request.',
+        }),
+      };
+    }
+
     // Log payload size for debugging
-    const bodySize = event.body ? Buffer.byteLength(event.body, 'utf8') : 0;
+    const bodySize = Buffer.byteLength(event.body, 'utf8');
     const bodySizeMB = (bodySize / (1024 * 1024)).toFixed(2);
     console.log(`[Payload] Size: ${bodySize} bytes (${bodySizeMB} MB)`);
     
@@ -314,7 +332,24 @@ export const handler = async (event: any, context: any) => {
       };
     }
     
-    const body = JSON.parse(event.body || '{}');
+    // Parse JSON with error handling
+    let body: any;
+    try {
+      body = JSON.parse(event.body);
+    } catch (parseError) {
+      console.error('[JSON Parse Error]:', parseError);
+      return {
+        statusCode: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Invalid JSON',
+          message: 'Request body is not valid JSON. Please check your request format.',
+        }),
+      };
+    }
     const requestedProvider = (body.aiProvider || 'gemini') as 'gemini' | 'ollama';
 
     // Rate limiting check
@@ -359,9 +394,29 @@ export const handler = async (event: any, context: any) => {
         console.log(`[File Processing] Type: ${mimeType}, Size: ${fileSize} bytes (${(fileSize / 1024).toFixed(2)} KB)`);
 
         if (mimeType === 'application/pdf') {
-          // Extract text from PDF in a single pass
-          prdContent = await extractTextFromPDF(buffer);
-          console.log(`[PDF Extraction] Extracted ${prdContent.length} characters from PDF`);
+          // Validate PDF size before processing (PDFs can be large)
+          if (fileSize > 5 * 1024 * 1024) { // 5MB limit for PDF files
+            throw new Error(`PDF file is too large (${(fileSize / 1024 / 1024).toFixed(2)}MB). Maximum size is 5MB. Please use a smaller PDF or extract text manually.`);
+          }
+          
+          // Extract text from PDF in a single pass with timeout
+          console.log(`[PDF Extraction] Starting extraction for ${(fileSize / 1024).toFixed(2)} KB PDF`);
+          const extractionStart = Date.now();
+          
+          prdContent = await Promise.race([
+            extractTextFromPDF(buffer),
+            new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error('PDF extraction timeout after 30 seconds')), 30000);
+            })
+          ]);
+          
+          const extractionTime = ((Date.now() - extractionStart) / 1000).toFixed(2);
+          console.log(`[PDF Extraction] Extracted ${prdContent.length} characters from PDF in ${extractionTime}s`);
+          
+          // Validate extracted content
+          if (!prdContent || prdContent.trim().length < 50) {
+            throw new Error('PDF extraction returned very little text. The PDF might be image-based, encrypted, or corrupted. Please try a different file.');
+          }
         } else {
           // For text files, convert directly
           prdContent = buffer.toString('utf-8');
@@ -401,11 +456,22 @@ export const handler = async (event: any, context: any) => {
     let testCases: string;
     try {
       console.log(`[AI Generation] Starting with provider: ${requestedProvider}, Content length: ${prdContent.length} chars`);
-      testCases = await generateTestCases(prdContent, format, scenarioTypes, requestedProvider);
+      
+      // Set a timeout for AI generation to prevent hanging
+      const generationPromise = generateTestCases(prdContent, format, scenarioTypes, requestedProvider);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('AI generation timeout after 50 seconds')), 50000);
+      });
+      
+      testCases = await Promise.race([generationPromise, timeoutPromise]);
       console.log(`[AI Generation] Success - Generated ${testCases.length} characters`);
       console.log('AI Provider used:', lastUsedProvider, '(requested:', requestedProvider, ')');
     } catch (aiError: any) {
-      console.error('[AI Generation Error]:', aiError);
+      console.error('[AI Generation Error]:', {
+        message: aiError?.message,
+        stack: aiError?.stack?.substring(0, 500),
+        provider: requestedProvider,
+      });
       
       // Return proper 500 error instead of crashing
       return {
@@ -422,6 +488,9 @@ export const handler = async (event: any, context: any) => {
       };
     }
 
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Request Complete] Total time: ${totalTime}s`);
+
     return {
       statusCode: 200,
       headers: {
@@ -437,11 +506,18 @@ export const handler = async (event: any, context: any) => {
           fileSize,
           extractedLength: prdContent.length,
           aiProvider: lastUsedProvider,
+          processingTime: `${totalTime}s`,
         },
       }),
     };
-  } catch (error) {
-    console.error('Error generating test cases:', error);
+  } catch (error: any) {
+    // Catch-all error handler to prevent 502 errors
+    console.error('[Fatal Error]:', {
+      message: error?.message,
+      stack: error?.stack?.substring(0, 1000),
+      name: error?.name,
+    });
+    
     return {
       statusCode: 500,
       headers: {
@@ -449,8 +525,8 @@ export const handler = async (event: any, context: any) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        error: 'Failed to generate test cases',
-        message: error instanceof Error ? error.message : String(error),
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again with a smaller file or contact support.',
       }),
     };
   }

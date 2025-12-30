@@ -54,19 +54,27 @@ const App: React.FC = () => {
     if (acceptedFiles.length === 0) return;
 
     const file = acceptedFiles[0];
+    
+    // Early file size validation (5MB limit for PDFs, accounting for Base64 overhead)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setError(`File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum size is 5MB. Please use a smaller file.`);
+      return;
+    }
+    
     setUploadedFile(file);
     setError(null);
     setIsGenerating(true);
 
     try {
-      // Convert file to base64 for Vercel serverless functions
+      // Convert file to base64 for serverless functions
       const reader = new FileReader();
       const fileBase64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => {
           const result = reader.result as string;
           resolve(result);
         };
-        reader.onerror = reject;
+        reader.onerror = () => reject(new Error('Failed to read file. Please try again.'));
         reader.readAsDataURL(file);
       });
 
