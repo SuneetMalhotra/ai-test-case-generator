@@ -96,7 +96,19 @@ const App: React.FC = () => {
       });
 
       // Get response text first to handle non-JSON responses
-      const responseText = await response.text();
+      let responseText: string;
+      try {
+        responseText = await response.text();
+      } catch (e: any) {
+        // Handle network errors (blocked by extension, CORS, etc.)
+        if (e.message?.includes('blocked') || e.message?.includes('ERR_BLOCKED')) {
+          throw new Error('Request was blocked by browser extension or security settings. Please disable ad blockers or privacy extensions and try again.');
+        }
+        if (e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError')) {
+          throw new Error('Network error: Unable to connect to the server. Please check your internet connection and try again.');
+        }
+        throw new Error(`Network error: ${e.message || 'Unknown error occurred'}`);
+      }
       
       if (!response.ok) {
         let errorMessage = 'Failed to generate test cases';
