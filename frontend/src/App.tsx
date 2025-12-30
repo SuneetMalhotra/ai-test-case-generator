@@ -381,9 +381,9 @@ const App: React.FC = () => {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="min-h-screen bg-zinc-900 flex">
       {/* Sidebar Navigation */}
-      <div className="w-64 bg-black border-r border-gray-800 flex flex-col">
+      <div className="w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col">
         <div className="p-6 border-b border-gray-800">
           <div className="flex items-center gap-2">
             <Sparkles className="text-blue-400" size={24} />
@@ -425,7 +425,7 @@ const App: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="bg-black border-b border-gray-800 px-8 py-4">
+        <header className="bg-zinc-900 border-b border-zinc-800 px-8 py-4">
           <h2 className="text-2xl font-light text-white">
             {activeTab === 'dashboard' && 'AI Test Case Generator'}
             {activeTab === 'documents' && 'Documents'}
@@ -436,40 +436,151 @@ const App: React.FC = () => {
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 p-8 overflow-y-auto bg-black">
+        <main className="flex-1 p-8 overflow-y-auto bg-zinc-900">
           {activeTab === 'dashboard' && (
-            <div className="max-w-6xl mx-auto space-y-8">
-              {/* Dashboard Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-400">Total Documents</h3>
-                    <FolderOpen className="text-gray-600" size={20} />
-                  </div>
-                  <p className="text-3xl font-light text-white">{totalDocuments}</p>
-                </div>
+            <div className="max-w-[1200px] mx-auto space-y-12">
+              {/* Navigation */}
+              <div className="flex items-center justify-between">
+                <a
+                  href="https://suneetmalhotra.com/tools"
+                  className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span>← Back to Tools</span>
+                </a>
+                <a
+                  href="https://github.com/SuneetMalhotra/ai-test-case-generator"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800/50 border border-zinc-700/50 rounded-lg text-white hover:bg-zinc-800 transition-colors"
+                  aria-label="View on GitHub"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium">GitHub</span>
+                </a>
+              </div>
 
-                <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-400">Total Test Cases</h3>
-                    <FileCheck className="text-gray-600" size={20} />
-                  </div>
-                  <p className="text-3xl font-light text-white">{totalTestCases}</p>
+              {/* Hero Section */}
+              <div className="mb-16">
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <span className="text-xs px-3 py-1 bg-zinc-800/50 text-cyan-400 rounded-full border border-cyan-500/20">AI-Powered</span>
+                  <span className="text-xs px-3 py-1 bg-zinc-800/50 text-cyan-400 rounded-full border border-cyan-500/20">Test Automation</span>
+                  <span className="text-xs px-3 py-1 bg-zinc-800/50 text-cyan-400 rounded-full border border-cyan-500/20">Quality Engineering</span>
                 </div>
+                <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight tracking-tight">
+                  AI Test Case Generator
+                </h1>
+                <p className="text-xl md:text-2xl text-gray-300 leading-relaxed max-w-3xl prose prose-invert">
+                  Transform Product Requirement Documents into comprehensive test suites using AI-powered analysis. 
+                  A personal research project demonstrating modern quality engineering automation.
+                </p>
+              </div>
 
-                <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-400">AI Test Generation</h3>
-                    <Sparkles className="text-blue-400" size={20} />
+              {/* Video Showcase */}
+              <div className="mb-20">
+                <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
+                  {/* Cyan/Blue outer glow effect */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-violet-500/10 blur-2xl -z-10"></div>
+                  
+                  <div className="aspect-video w-full rounded-xl overflow-hidden bg-zinc-900 relative z-10">
+                    <iframe
+                      src="https://www.youtube.com/embed/KbnFXJtnUgc"
+                      title="AI Test Case Generator Demo"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
+                    ></iframe>
                   </div>
-                  <p className="text-3xl font-light text-white">Ready</p>
-                  <p className="text-sm text-gray-400 mt-2">Upload a PRD to start</p>
+                  
+                  <p className="mt-6 text-center text-gray-400 text-sm md:text-base font-medium prose prose-invert">
+                    Demo: Processing a 15-page PRD (Product Requirement Document) into a full test suite.
+                  </p>
+                </div>
+              </div>
+
+              {/* Technical Deep Dive - Bento Grid */}
+              <div className="mb-20">
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-12 text-center">AI Coverage Analysis</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  {/* Card 1: Positive Paths */}
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-xl p-6 hover:border-cyan-500/30 transition-all duration-300 hover:scale-[1.02]">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-white">Positive Paths</h3>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed prose prose-invert">
+                      Focus on Happy Path validation and core business requirements. Ensures all primary user flows 
+                      and expected behaviors are thoroughly tested.
+                    </p>
+                  </div>
+
+                  {/* Card 2: Negative Testing */}
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-xl p-6 hover:border-red-500/30 transition-all duration-300 hover:scale-[1.02]">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-white">Negative Testing</h3>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed prose prose-invert">
+                      Comprehensive error handling, failure modes, and system robustness validation. Tests boundary 
+                      conditions and invalid input scenarios.
+                    </p>
+                  </div>
+
+                  {/* Card 3: Edge Cases */}
+                  <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-xl p-6 hover:border-yellow-500/30 transition-all duration-300 hover:scale-[1.02]">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-white">Edge Cases</h3>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed prose prose-invert">
+                      Boundary conditions and rare user behaviors. Identifies potential issues at the limits of system 
+                      capabilities and unusual but valid inputs.
+                    </p>
+                  </div>
+
+                  {/* Card 4: Process Card (Wider) */}
+                  <div className="md:col-span-2 lg:col-span-3 bg-gradient-to-br from-zinc-900/80 to-zinc-800/50 backdrop-blur-md border border-cyan-500/20 rounded-xl p-8 hover:border-cyan-500/40 transition-all duration-300">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-7 h-7 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-white mb-3">Workflow Process</h3>
+                        <p className="text-gray-300 leading-relaxed text-lg prose prose-invert">
+                          <strong className="text-cyan-400">Ingests PDF PRDs</strong> → <strong className="text-cyan-400">Contextual AI Analysis</strong> → <strong className="text-cyan-400">Structured Jira/CSV Export</strong>
+                        </p>
+                        <p className="text-gray-400 mt-4 leading-relaxed prose prose-invert">
+                          The system processes requirement documents through advanced AI analysis, extracting key functional 
+                          requirements, edge cases, and security considerations. Output is formatted for direct import into 
+                          test management tools like Jira, Zephyr, or TestRail.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Generator Section */}
-              <div className="bg-gray-900 rounded-lg border border-gray-800 p-8">
-                <h3 className="text-xl font-light text-white mb-6">Generate Test Cases</h3>
+              <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-xl p-8 mb-12">
+                <h3 className="text-2xl font-bold text-white mb-6">Generate Test Cases</h3>
 
                 {/* AI Provider Toggle */}
                 <div className="mb-6">
@@ -482,8 +593,8 @@ const App: React.FC = () => {
                       disabled={isGenerating}
                       className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
                         aiProvider === 'gemini'
-                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
-                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
+                          ? 'border-cyan-400 bg-zinc-800 text-white font-medium'
+                          : 'border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600 hover:text-gray-300'
                       } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -496,8 +607,8 @@ const App: React.FC = () => {
                       disabled={isGenerating}
                       className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
                         aiProvider === 'ollama'
-                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
-                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
+                          ? 'border-cyan-400 bg-zinc-800 text-white font-medium'
+                          : 'border-zinc-700 bg-zinc-900 text-gray-400 hover:border-zinc-600 hover:text-gray-300'
                       } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -518,14 +629,14 @@ const App: React.FC = () => {
                   {...getRootProps()}
                   className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-all ${
                     isDragActive
-                      ? 'border-blue-400 bg-gray-800'
-                      : 'border-gray-800 hover:border-gray-700 hover:bg-gray-800'
+                      ? 'border-cyan-400 bg-zinc-800/50'
+                      : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800/30'
                   } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <input {...getInputProps()} />
                   {isGenerating ? (
                     <div className="flex flex-col items-center">
-                      <Loader2 className="animate-spin text-blue-400 mb-4" size={48} />
+                      <Loader2 className="animate-spin text-cyan-400 mb-4" size={48} />
                       <p className="text-lg font-medium text-white">Generating test cases...</p>
                       <p className="text-sm text-gray-400 mt-2">
                         AI is analyzing your document and creating scenarios
@@ -533,24 +644,24 @@ const App: React.FC = () => {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center">
-                      <div className="bg-gray-800 border border-gray-700 rounded-full p-4 mb-4">
-                        <Upload className="text-blue-400" size={32} />
+                      <div className="bg-zinc-800 border border-zinc-700 rounded-full p-4 mb-4">
+                        <Upload className="text-cyan-400" size={32} />
                       </div>
                       <p className="text-lg font-medium text-white mb-2">
                         {isDragActive ? 'Drop your PRD here' : 'Drag & drop your PRD file here'}
                       </p>
                       <p className="text-sm text-gray-400 mb-4">or click to browse</p>
                       <p className="text-xs text-gray-500">
-                        Supports PDF, Markdown, and Text files (max 10MB)
+                        Supports PDF, Markdown, and Text files (max 5MB)
                       </p>
                     </div>
                   )}
                 </div>
 
                 {uploadedFile && !isGenerating && (
-                  <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-800 flex items-center justify-between">
+                  <div className="mt-4 p-4 bg-zinc-800/50 rounded-lg border border-zinc-700 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <FileText className="text-blue-400" size={20} />
+                      <FileText className="text-cyan-400" size={20} />
                       <span className="text-sm text-gray-300">{uploadedFile.name}</span>
                     </div>
                     <button
@@ -568,6 +679,24 @@ const App: React.FC = () => {
                     <p className="text-sm text-red-300">{error}</p>
                   </div>
                 )}
+              </div>
+
+              {/* H1B-Compliant CTA */}
+              <div className="bg-zinc-900/50 backdrop-blur-md border border-zinc-800/50 rounded-2xl p-8 md:p-12 text-center">
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Professional Networking & Demos</h2>
+                <p className="text-gray-300 text-lg mb-8 max-w-2xl mx-auto leading-relaxed prose prose-invert">
+                  This tool is a personal research project. I am available for professional knowledge sharing and 
+                  technical demonstrations upon request.
+                </p>
+                <a
+                  href="https://suneetmalhotra.com/contact?subject=Networking"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-cyan-500 to-violet-500 text-white font-semibold rounded-lg hover:from-cyan-600 hover:to-violet-600 transition-all duration-300 shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50"
+                >
+                  Request a Technical Deep-Dive
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </a>
               </div>
             </div>
           )}

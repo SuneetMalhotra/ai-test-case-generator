@@ -10,7 +10,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import axios from 'axios';
-import pdfParse from 'pdf-parse';
+// @ts-ignore - pdf-parse has ESM export issues
+import * as pdfParseModule from 'pdf-parse';
+const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 import { Buffer } from 'buffer';
 import fs from 'fs/promises';
 import dotenv from 'dotenv';
@@ -62,13 +64,12 @@ const uploadsDir = path.join(__dirname, '../uploads');
 fs.mkdir(uploadsDir, { recursive: true }).catch(console.error);
 
 /**
- * Extract text from PDF file
+ * Extract text from PDF buffer
  */
-async function extractTextFromPDF(filePath: string): Promise<string> {
+async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const dataBuffer = await fs.readFile(filePath);
-    const data = await pdfParse(Buffer.from(dataBuffer));
-    return data.text;
+    const data = await pdfParse(buffer);
+    return data.text || '';
   } catch (error) {
     throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -91,7 +92,8 @@ async function extractTextFromMarkdown(filePath: string): Promise<string> {
 async function generateTestCases(
   prdContent: string,
   format: 'table' | 'gherkin',
-  scenarioTypes?: string
+  scenarioTypes?: string,
+  aiProvider: 'gemini' | 'ollama' = 'ollama'
 ): Promise<string> {
   const types = scenarioTypes ? scenarioTypes.split(',').map(t => t.trim()) : ['functional', 'edge-case', 'negative'];
   
@@ -194,48 +196,64 @@ ${scenarioTypeInstructions}
 /**
  * POST /api/generate
  * Accepts PRD file and generates test cases
+ * Supports both multipart/form-data and JSON with base64
  */
-app.post('/api/generate', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
+app.post('/api/generate', (req, res, next) => {
+  // Check if request is JSON with base64 (from frontend)
+  if (req.body && req.body.file && typeof req.body.file === 'string' && req.body.file.startsWith('data:')) {
+    // Handle JSON request directly
+    handleJsonRequest(req, res).catch(next);
+  } else {
+    // Handle multipart/form-data with multer
+    upload.single('file')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      handleMultipartRequest(req, res).catch(next);
+    });
+  }
+});
 
+async function handleJsonRequest(req: express.Request, res: express.Response) {
+  try {
     const format = (req.body.format as 'table' | 'gherkin') || 'table';
     const scenarioTypes = req.body.scenarioTypes || 'functional,edge-case,negative';
-    const filePath = req.file.path;
-    const fileMime = req.file.mimetype;
-
-    // Extract text from file
-    let prdContent: string;
-    if (fileMime === 'application/pdf') {
-      prdContent = await extractTextFromPDF(filePath);
-    } else {
-      prdContent = await extractTextFromMarkdown(filePath);
+    const aiProvider = (req.body.aiProvider as 'gemini' | 'ollama') || 'ollama';
+    
+    // Handle base64 encoded file
+    const base64Data = req.body.file.split(',')[1];
+    if (!base64Data) {
+      return res.status(400).json({ error: 'Invalid base64 data format' });
     }
 
-    // Clean up uploaded file
-    await fs.unlink(filePath).catch(console.error);
+    const buffer = Buffer.from(base64Data, 'base64');
+    const fileSize = buffer.length;
+    const fileName = req.body.fileName || 'uploaded-file';
+    const mimeType = req.body.file.split(';')[0].split(':')[1];
+
+    console.log(`[File Processing] Type: ${mimeType}, Size: ${fileSize} bytes (${(fileSize / 1024).toFixed(2)} KB)`);
+
+    let prdContent: string;
+    if (mimeType === 'application/pdf') {
+      prdContent = await extractTextFromPDF(buffer);
+      console.log(`[PDF Extraction] Extracted ${prdContent.length} characters`);
+    } else {
+      prdContent = buffer.toString('utf-8');
+      console.log(`[Text Extraction] Extracted ${prdContent.length} characters`);
+    }
 
     // Generate test cases
-    const testCases = await generateTestCases(prdContent, format, scenarioTypes);
+    const testCases = await generateTestCases(prdContent, format, scenarioTypes, aiProvider);
     
-    // Debug logging
-    console.log('Generated test cases length:', testCases.length);
-    console.log('First 500 chars of test cases:', testCases.substring(0, 500));
-    if (!testCases || testCases.trim().length === 0) {
-      console.error('WARNING: Generated test cases is empty!');
-      console.log('PRD content length:', prdContent.length);
-      console.log('PRD content preview:', prdContent.substring(0, 200));
-    }
+    console.log(`[AI Generation] Success - Generated ${testCases.length} characters`);
 
     res.json({
       success: true,
       testCases,
       format,
       metadata: {
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
+        fileName,
+        fileSize,
         extractedLength: prdContent.length,
       },
     });
@@ -246,7 +264,56 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+}
+
+async function handleMultipartRequest(req: express.Request, res: express.Response) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const format = (req.body.format as 'table' | 'gherkin') || 'table';
+    const scenarioTypes = req.body.scenarioTypes || 'functional,edge-case,negative';
+    const aiProvider = (req.body.aiProvider as 'gemini' | 'ollama') || 'ollama';
+    
+    const filePath = req.file.path;
+    const fileMime = req.file.mimetype;
+    const fileName = req.file.originalname;
+    const fileSize = req.file.size;
+
+    // Extract text from file
+    let prdContent: string;
+    if (fileMime === 'application/pdf') {
+      const dataBuffer = await fs.readFile(filePath);
+      prdContent = await extractTextFromPDF(Buffer.from(dataBuffer));
+    } else {
+      prdContent = await extractTextFromMarkdown(filePath);
+    }
+
+    // Clean up uploaded file
+    await fs.unlink(filePath).catch(console.error);
+
+    // Generate test cases
+    const testCases = await generateTestCases(prdContent, format, scenarioTypes, aiProvider);
+    
+    res.json({
+      success: true,
+      testCases,
+      format,
+      metadata: {
+        fileName,
+        fileSize,
+        extractedLength: prdContent.length,
+      },
+    });
+  } catch (error) {
+    console.error('Error generating test cases:', error);
+    res.status(500).json({
+      error: 'Failed to generate test cases',
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 /**
  * Health check endpoint
