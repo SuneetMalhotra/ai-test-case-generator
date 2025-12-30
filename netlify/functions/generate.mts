@@ -15,7 +15,9 @@ export const config = {
     windowLimit: 5,
     windowSize: 60,
     aggregateBy: ["ip"]
-  }
+  },
+  // Increase timeout for PDF processing and AI generation
+  maxDuration: 60, // 60 seconds (Netlify's max for standard functions)
 };
 
 // Simple in-memory rate limiting (resets on function restart)
@@ -31,13 +33,26 @@ const corsHeaders = {
 };
 
 /**
- * Extract text from PDF buffer
+ * Extract text from PDF buffer (optimized - single pass)
  */
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const data = await (pdfParse as any)(buffer);
-    return data.text;
+    // Parse PDF in a single pass - pdf-parse handles the buffer efficiently
+    const data = await (pdfParse as any)(buffer, {
+      max: 0, // No page limit
+    });
+    
+    const extractedText = data.text || '';
+    
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error('PDF appears to be empty or contains no extractable text. It may be image-based or encrypted.');
+    }
+    
+    return extractedText;
   } catch (error) {
+    if (error instanceof Error && error.message.includes('empty')) {
+      throw error;
+    }
     throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -144,20 +159,31 @@ ${scenarioTypeInstructions}
       lastUsedProvider = 'gemini';
       return generatedText;
     } catch (error: any) {
-      console.error('Gemini API error:', error);
+      console.error('[Gemini API Error]:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+        code: error.code,
+      });
       
-      // Provide helpful error messages
+      // Provide helpful error messages with proper error handling
       if (error.response?.status === 401) {
         throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY in Netlify environment variables.');
       } else if (error.response?.status === 429) {
         throw new Error('Gemini API quota exceeded. Please check your API usage limits.');
       } else if (error.response?.status === 400) {
-        throw new Error(`Gemini API error: ${error.response?.data?.error?.message || 'Invalid request'}`);
-      } else if (error.code === 'ECONNABORTED') {
-        throw new Error('Request timeout. The PRD content might be too large. Please try with a smaller document.');
+        const errorMsg = error.response?.data?.error?.message || 'Invalid request';
+        throw new Error(`Gemini API error: ${errorMsg}. The content might be too large or malformed.`);
+      } else if (error.response?.status === 413) {
+        throw new Error('Content too large for Gemini API. Please use a smaller document or split it into parts.');
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        throw new Error('Request timeout. The PRD content might be too large. Please try with a smaller document (under 1MB recommended).');
+      } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        throw new Error('Network error: Unable to connect to Gemini API. Please check your internet connection.');
       }
       
-      throw new Error(`Gemini API error: ${error.message || 'Unknown error occurred'}`);
+      // Generic error fallback
+      throw new Error(`Gemini API error: ${error.message || 'Unknown error occurred'}. Please try again or use Ollama provider.`);
     }
   } else {
     // Use Ollama
@@ -267,6 +293,27 @@ export const handler = async (event: any, context: any) => {
   }
 
   try {
+    // Log payload size for debugging
+    const bodySize = event.body ? Buffer.byteLength(event.body, 'utf8') : 0;
+    const bodySizeMB = (bodySize / (1024 * 1024)).toFixed(2);
+    console.log(`[Payload] Size: ${bodySize} bytes (${bodySizeMB} MB)`);
+    
+    // Check if payload exceeds Netlify's 6MB limit (accounting for Base64 encoding)
+    // Base64 increases size by ~33%, so 6MB limit means ~4.5MB original file
+    if (bodySize > 6 * 1024 * 1024) {
+      return {
+        statusCode: 413,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'Payload too large',
+          message: `File size exceeds limit. Maximum size is ~4.5MB (6MB with Base64 encoding). Your file is ${bodySizeMB}MB. Please use a smaller file.`,
+        }),
+      };
+    }
+    
     const body = JSON.parse(event.body || '{}');
     const requestedProvider = (body.aiProvider || 'gemini') as 'gemini' | 'ollama';
 
@@ -298,33 +345,82 @@ export const handler = async (event: any, context: any) => {
 
     // Handle base64 encoded file (from frontend)
     if (body.file && typeof body.file === 'string' && body.file.startsWith('data:')) {
-      const base64Data = body.file.split(',')[1];
-      const buffer = Buffer.from(base64Data, 'base64');
-      fileSize = buffer.length;
-      const mimeType = body.file.split(';')[0].split(':')[1];
+      try {
+        const base64Data = body.file.split(',')[1];
+        if (!base64Data) {
+          throw new Error('Invalid base64 data format');
+        }
+        
+        // Convert base64 to buffer (single operation)
+        const buffer = Buffer.from(base64Data, 'base64');
+        fileSize = buffer.length;
+        const mimeType = body.file.split(';')[0].split(':')[1];
+        
+        console.log(`[File Processing] Type: ${mimeType}, Size: ${fileSize} bytes (${(fileSize / 1024).toFixed(2)} KB)`);
 
-      if (mimeType === 'application/pdf') {
-        prdContent = await extractTextFromPDF(buffer);
-      } else {
-        prdContent = buffer.toString('utf-8');
+        if (mimeType === 'application/pdf') {
+          // Extract text from PDF in a single pass
+          prdContent = await extractTextFromPDF(buffer);
+          console.log(`[PDF Extraction] Extracted ${prdContent.length} characters from PDF`);
+        } else {
+          // For text files, convert directly
+          prdContent = buffer.toString('utf-8');
+          console.log(`[Text Extraction] Extracted ${prdContent.length} characters`);
+        }
+      } catch (error) {
+        console.error('[File Processing Error]:', error);
+        return {
+          statusCode: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            error: 'File processing failed',
+            message: error instanceof Error ? error.message : 'Failed to process uploaded file',
+          }),
+        };
       }
     } else if (body.content) {
       // Direct text content
       prdContent = body.content;
       fileSize = prdContent.length;
+      console.log(`[Direct Content] Length: ${prdContent.length} characters`);
     } else {
       return {
         statusCode: 400,
-        headers: corsHeaders,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ error: 'No file or content provided' }),
       };
     }
 
-    // Generate test cases with requested provider
-    const testCases = await generateTestCases(prdContent, format, scenarioTypes, requestedProvider);
-    
-    console.log('Generated test cases length:', testCases.length);
-    console.log('AI Provider used:', lastUsedProvider, '(requested:', requestedProvider, ')');
+    // Generate test cases with requested provider (wrapped in try-catch for robust error handling)
+    let testCases: string;
+    try {
+      console.log(`[AI Generation] Starting with provider: ${requestedProvider}, Content length: ${prdContent.length} chars`);
+      testCases = await generateTestCases(prdContent, format, scenarioTypes, requestedProvider);
+      console.log(`[AI Generation] Success - Generated ${testCases.length} characters`);
+      console.log('AI Provider used:', lastUsedProvider, '(requested:', requestedProvider, ')');
+    } catch (aiError: any) {
+      console.error('[AI Generation Error]:', aiError);
+      
+      // Return proper 500 error instead of crashing
+      return {
+        statusCode: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'AI generation failed',
+          message: aiError instanceof Error ? aiError.message : 'Failed to generate test cases. Please try again or use a different AI provider.',
+          provider: requestedProvider,
+        }),
+      };
+    }
 
     return {
       statusCode: 200,

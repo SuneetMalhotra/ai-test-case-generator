@@ -3,6 +3,11 @@
   publish = "frontend/dist"
   functions = "netlify/functions"
 
+[functions.generate]
+  included_files = ["netlify/functions/**"]
+  node_bundler = "esbuild"
+  timeout = 60
+
 [[headers]]
   for = "/*"
   [headers.values]
