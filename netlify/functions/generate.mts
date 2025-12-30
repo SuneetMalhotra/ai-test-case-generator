@@ -4,11 +4,10 @@ import * as pdfParseModule from 'pdf-parse';
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 import { Buffer } from 'buffer';
 
-// AI Configuration - Gemini with Ollama fallback
+// AI Configuration - Gemini and Ollama
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
-const ACCESS_PASSWORD = (process.env.ACCESS_PASSWORD || 'demo2024').trim(); // Default password, change in Netlify env vars
 
 // Simple in-memory rate limiting (resets on function restart)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -38,12 +37,13 @@ async function extractTextFromPDF(buffer: Buffer): Promise<string> {
 let lastUsedProvider: 'gemini' | 'ollama' = 'gemini';
 
 /**
- * Generate test cases using Gemini with Ollama fallback
+ * Generate test cases using specified AI provider (Gemini or Ollama)
  */
 async function generateTestCases(
   prdContent: string,
   format: 'table' | 'gherkin',
-  scenarioTypes?: string
+  scenarioTypes: string | undefined,
+  provider: 'gemini' | 'ollama'
 ): Promise<string> {
   const types = scenarioTypes ? scenarioTypes.split(',').map(t => t.trim()) : ['functional', 'edge-case', 'negative'];
   
@@ -104,8 +104,12 @@ ${scenarioTypeInstructions}
 - Priority should reflect business risk (High/Medium/Low)
 - Ensure comprehensive coverage of all PRD requirements`;
 
-  // Try Gemini first, fallback to Ollama if Gemini fails or is not configured
-  if (GEMINI_API_KEY) {
+  // Use the requested provider
+  if (provider === 'gemini') {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key is not configured. Please set GEMINI_API_KEY in Netlify environment variables, or use Ollama provider.');
+    }
+    
     try {
       const response = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
@@ -124,28 +128,34 @@ ${scenarioTypeInstructions}
 
       const generatedText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       
-      if (generatedText) {
-        lastUsedProvider = 'gemini';
-        return generatedText;
+      if (!generatedText) {
+        throw new Error('Gemini API returned empty response. Check API quota and configuration.');
       }
       
-      // If empty response, fall through to Ollama
-      console.warn('Gemini returned empty response, falling back to Ollama');
+      lastUsedProvider = 'gemini';
+      return generatedText;
     } catch (error: any) {
-      console.error('Gemini API error, falling back to Ollama:', error.message);
+      console.error('Gemini API error:', error);
       
-      // For certain errors, don't fallback (like invalid API key)
+      // Provide helpful error messages
       if (error.response?.status === 401) {
         throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY in Netlify environment variables.');
+      } else if (error.response?.status === 429) {
+        throw new Error('Gemini API quota exceeded. Please check your API usage limits.');
+      } else if (error.response?.status === 400) {
+        throw new Error(`Gemini API error: ${error.response?.data?.error?.message || 'Invalid request'}`);
+      } else if (error.code === 'ECONNABORTED') {
+        throw new Error('Request timeout. The PRD content might be too large. Please try with a smaller document.');
       }
       
-      // For other errors, fall through to Ollama fallback
+      throw new Error(`Gemini API error: ${error.message || 'Unknown error occurred'}`);
     }
+  } else {
+    // Use Ollama
+    console.log('Using Ollama provider:', OLLAMA_HOST);
+    lastUsedProvider = 'ollama';
+    return generateWithOllama(prdContent, format, scenarioTypes, systemPrompt, userPrompt);
   }
-
-  // Fallback to Ollama (local development or when Gemini fails)
-  console.log('Using Ollama fallback:', OLLAMA_HOST);
-  return generateWithOllama(prdContent, format, scenarioTypes, systemPrompt, userPrompt);
 }
 
 /**
@@ -249,26 +259,7 @@ export const handler = async (event: any, context: any) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    
-    // Password protection check
-    const providedPassword = (body.password || event.headers['x-access-password'] || '').trim();
-    const expectedPassword = ACCESS_PASSWORD.trim();
-    
-    console.log('Password check - provided:', providedPassword ? '***' : '(empty)', 'expected:', expectedPassword ? '***' : '(empty)');
-    
-    if (!providedPassword || providedPassword !== expectedPassword) {
-      return {
-        statusCode: 401,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          error: 'Unauthorized',
-          message: `Invalid access password. Please provide the correct password to use this service. (Expected: ${expectedPassword ? '***' : 'not set'}, Got: ${providedPassword ? '***' : 'empty'})`,
-        }),
-      };
-    }
+    const requestedProvider = (body.aiProvider || 'gemini') as 'gemini' | 'ollama';
 
     // Rate limiting check
     const clientIp = event.headers['x-forwarded-for']?.split(',')[0] || 
@@ -320,11 +311,11 @@ export const handler = async (event: any, context: any) => {
       };
     }
 
-    // Generate test cases
-    const testCases = await generateTestCases(prdContent, format, scenarioTypes);
+    // Generate test cases with requested provider
+    const testCases = await generateTestCases(prdContent, format, scenarioTypes, requestedProvider);
     
     console.log('Generated test cases length:', testCases.length);
-    console.log('AI Provider used:', lastUsedProvider);
+    console.log('AI Provider used:', lastUsedProvider, '(requested:', requestedProvider, ')');
 
     return {
       statusCode: 200,

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { exportToCSV } from './utils/csvExport';
 
-type AIProvider = 'ollama' | 'openai';
+type AIProvider = 'gemini' | 'ollama';
 type ScenarioType = 'functional' | 'edge-case' | 'negative';
 
 interface TestCase {
@@ -39,14 +39,13 @@ interface Document {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'documents' | 'test-cases' | 'messages' | 'settings'>('dashboard');
-  const [aiProvider, setAiProvider] = useState<AIProvider>('ollama');
+  const [aiProvider, setAiProvider] = useState<AIProvider>('gemini');
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [rawTestCases, setRawTestCases] = useState<string | null>(null);
-  const [accessPassword, setAccessPassword] = useState<string>('');
 
   const totalDocuments = documents.length;
   const totalTestCases = testCases.length;
@@ -71,14 +70,6 @@ const App: React.FC = () => {
         reader.readAsDataURL(file);
       });
 
-      // Trim and validate password
-      const trimmedPassword = (accessPassword || '').trim();
-      if (!trimmedPassword) {
-        setError('Access password is required. Please enter the password to generate test cases.');
-        setIsGenerating(false);
-        return;
-      }
-
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -91,7 +82,7 @@ const App: React.FC = () => {
           fileSize: file.size,
           format: 'table',
           scenarioTypes: 'functional,edge-case,negative',
-          password: trimmedPassword,
+          aiProvider: aiProvider,
         }),
       });
 
@@ -166,8 +157,20 @@ const App: React.FC = () => {
       
       setActiveTab('test-cases');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      let errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      
+      // Provide helpful messages for common errors
+      if (errorMessage.includes('blocked') || errorMessage.includes('ERR_BLOCKED')) {
+        errorMessage = 'Request blocked by browser extension. Please disable ad blockers or privacy extensions (like uBlock Origin, Privacy Badger) and try again.';
+      } else if (errorMessage.includes('Network error') || errorMessage.includes('Failed to fetch')) {
+        errorMessage = 'Network error: Unable to connect to the server. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('CORS')) {
+        errorMessage = 'CORS error: Cross-origin request blocked. Please contact support if this persists.';
+      }
+      
+      setError(errorMessage);
       setUploadedFile(null);
+      console.error('Error generating test cases:', err);
     } finally {
       setIsGenerating(false);
     }
@@ -446,37 +449,46 @@ const App: React.FC = () => {
               <div className="bg-gray-900 rounded-lg border border-gray-800 p-8">
                 <h3 className="text-xl font-light text-white mb-6">Generate Test Cases</h3>
 
-                {/* Access Password */}
+                {/* AI Provider Toggle */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Access Password <span className="text-red-400">*</span>
+                  <label className="block text-sm font-medium text-gray-400 mb-3">
+                    AI Provider
                   </label>
-                  <input
-                    type="password"
-                    value={accessPassword}
-                    onChange={(e) => setAccessPassword(e.target.value)}
-                    onBlur={(e) => setAccessPassword(e.target.value.trim())}
-                    placeholder="Enter password (default: demo2024)"
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-                    disabled={isGenerating}
-                    autoComplete="off"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    Password required. Free tier: 1 generation per hour per IP address.
-                  </p>
-                </div>
-
-                {/* AI Provider Info */}
-                <div className="mb-6">
-                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                    <div className="flex items-center gap-3">
-                      <Sparkles className="text-blue-400" size={20} />
-                      <div>
-                        <p className="text-sm font-medium text-white">Google Gemini AI</p>
-                        <p className="text-xs text-gray-400">Powered by Gemini Pro model</p>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setAiProvider('gemini')}
+                      disabled={isGenerating}
+                      className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
+                        aiProvider === 'gemini'
+                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
+                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
+                      } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Sparkles size={18} />
+                        <span>Google Gemini</span>
                       </div>
-                    </div>
+                    </button>
+                    <button
+                      onClick={() => setAiProvider('ollama')}
+                      disabled={isGenerating}
+                      className={`flex-1 px-6 py-3 rounded-lg border-2 transition-all ${
+                        aiProvider === 'ollama'
+                          ? 'border-blue-400 bg-gray-800 text-white font-medium'
+                          : 'border-gray-800 bg-gray-900 text-gray-400 hover:border-gray-700 hover:text-gray-300'
+                      } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <Brain size={18} />
+                        <span>Ollama (Local)</span>
+                      </div>
+                    </button>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {aiProvider === 'gemini' 
+                      ? 'Using Google Gemini Pro for cloud-based AI generation'
+                      : 'Using local Ollama instance (requires Ollama running on your machine)'}
+                  </p>
                 </div>
 
                 {/* Upload Zone */}
