@@ -4,9 +4,11 @@ import * as pdfParseModule from 'pdf-parse';
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 import { Buffer } from 'buffer';
 
-// AI Configuration - Gemini Only
+// AI Configuration - Gemini with Ollama fallback
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || 'demo2024'; // Default password, change in Netlify env vars
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b';
+const ACCESS_PASSWORD = (process.env.ACCESS_PASSWORD || 'demo2024').trim(); // Default password, change in Netlify env vars
 
 // Simple in-memory rate limiting (resets on function restart)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -32,8 +34,11 @@ async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   }
 }
 
+// Track which provider was used (for metadata)
+let lastUsedProvider: 'gemini' | 'ollama' = 'gemini';
+
 /**
- * Generate test cases using hybrid AI (OpenAI, Gemini, or Ollama)
+ * Generate test cases using Gemini with Ollama fallback
  */
 async function generateTestCases(
   prdContent: string,
@@ -99,49 +104,100 @@ ${scenarioTypeInstructions}
 - Priority should reflect business risk (High/Medium/Low)
 - Ensure comprehensive coverage of all PRD requirements`;
 
-  // Use Gemini API (only provider)
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is not configured. Please set it in Netlify environment variables.');
+  // Try Gemini first, fallback to Ollama if Gemini fails or is not configured
+  if (GEMINI_API_KEY) {
+    try {
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          contents: [{
+            parts: [{
+              text: `${systemPrompt}\n\n${userPrompt}`
+            }]
+            }]
+          },
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 120000,
+          }
+        );
+
+      const generatedText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      if (generatedText) {
+        lastUsedProvider = 'gemini';
+        return generatedText;
+      }
+      
+      // If empty response, fall through to Ollama
+      console.warn('Gemini returned empty response, falling back to Ollama');
+    } catch (error: any) {
+      console.error('Gemini API error, falling back to Ollama:', error.message);
+      
+      // For certain errors, don't fallback (like invalid API key)
+      if (error.response?.status === 401) {
+        throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY in Netlify environment variables.');
+      }
+      
+      // For other errors, fall through to Ollama fallback
+    }
   }
 
+  // Fallback to Ollama (local development or when Gemini fails)
+  console.log('Using Ollama fallback:', OLLAMA_HOST);
+  return generateWithOllama(prdContent, format, scenarioTypes, systemPrompt, userPrompt);
+}
+
+/**
+ * Generate test cases using Ollama (local fallback)
+ */
+async function generateWithOllama(
+  prdContent: string,
+  format: 'table' | 'gherkin',
+  scenarioTypes: string | undefined,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `${OLLAMA_HOST}/api/chat`,
       {
-        contents: [{
-          parts: [{
-            text: `${systemPrompt}\n\n${userPrompt}`
-          }]
-          }]
+        model: OLLAMA_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        stream: false,
+        options: {
+          temperature: 0.2,
+          top_p: 0.9,
         },
-        {
-          headers: { 'Content-Type': 'application/json' },
-          timeout: 120000,
-        }
-      );
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 120000,
+      }
+    );
 
-    const generatedText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const generatedText = response.data.message?.content || '';
     
     if (!generatedText) {
-      throw new Error('Gemini API returned empty response. Check API quota and configuration.');
+      throw new Error('Ollama returned empty response. Check if the model is loaded.');
     }
 
+    lastUsedProvider = 'ollama';
     return generatedText;
   } catch (error: any) {
-    console.error('Gemini API error:', error);
-    
-    // Provide helpful error messages
-    if (error.response?.status === 401) {
-      throw new Error('Invalid Gemini API key. Please check your GEMINI_API_KEY in Netlify environment variables.');
-    } else if (error.response?.status === 429) {
-      throw new Error('Gemini API quota exceeded. Please check your API usage limits.');
-    } else if (error.response?.status === 400) {
-      throw new Error(`Gemini API error: ${error.response?.data?.error?.message || 'Invalid request'}`);
-    } else if (error.code === 'ECONNABORTED') {
-      throw new Error('Request timeout. The PRD content might be too large. Please try with a smaller document.');
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 404) {
+        throw new Error(`Model "${OLLAMA_MODEL}" not found. Please run: ollama pull ${OLLAMA_MODEL}. Available models: Check with "ollama list"`);
+      }
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        throw new Error(`Cannot connect to Ollama at ${OLLAMA_HOST}. Is Ollama running? For local development, start Ollama with: ollama serve`);
+      }
+      throw new Error(`Ollama API error: ${error.message}. Is Ollama running at ${OLLAMA_HOST}?`);
     }
-    
-    throw new Error(`Gemini API error: ${error.message || 'Unknown error occurred'}`);
+    throw error;
   }
 }
 
@@ -195,8 +251,12 @@ export const handler = async (event: any, context: any) => {
     const body = JSON.parse(event.body || '{}');
     
     // Password protection check
-    const providedPassword = body.password || event.headers['x-access-password'];
-    if (providedPassword !== ACCESS_PASSWORD) {
+    const providedPassword = (body.password || event.headers['x-access-password'] || '').trim();
+    const expectedPassword = ACCESS_PASSWORD.trim();
+    
+    console.log('Password check - provided:', providedPassword ? '***' : '(empty)', 'expected:', expectedPassword ? '***' : '(empty)');
+    
+    if (!providedPassword || providedPassword !== expectedPassword) {
       return {
         statusCode: 401,
         headers: {
@@ -205,7 +265,7 @@ export const handler = async (event: any, context: any) => {
         },
         body: JSON.stringify({
           error: 'Unauthorized',
-          message: 'Invalid access password. Please provide the correct password to use this service.',
+          message: `Invalid access password. Please provide the correct password to use this service. (Expected: ${expectedPassword ? '***' : 'not set'}, Got: ${providedPassword ? '***' : 'empty'})`,
         }),
       };
     }
@@ -262,9 +322,9 @@ export const handler = async (event: any, context: any) => {
 
     // Generate test cases
     const testCases = await generateTestCases(prdContent, format, scenarioTypes);
-
+    
     console.log('Generated test cases length:', testCases.length);
-    console.log('AI Provider used: Gemini');
+    console.log('AI Provider used:', lastUsedProvider);
 
     return {
       statusCode: 200,
@@ -280,7 +340,7 @@ export const handler = async (event: any, context: any) => {
           fileName,
           fileSize,
           extractedLength: prdContent.length,
-          aiProvider: 'gemini',
+          aiProvider: lastUsedProvider,
         },
       }),
     };
