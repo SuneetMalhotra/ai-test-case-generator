@@ -1,6 +1,7 @@
 import axios from 'axios';
 // @ts-ignore - pdf-parse has ESM export issues
-import pdfParse from 'pdf-parse';
+import * as pdfParseModule from 'pdf-parse';
+const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 import { Buffer } from 'buffer';
 
 // AI Configuration - Gemini Only
