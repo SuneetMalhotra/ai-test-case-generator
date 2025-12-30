@@ -71,8 +71,12 @@ const App: React.FC = () => {
         reader.readAsDataURL(file);
       });
 
-      if (!accessPassword) {
-        throw new Error('Access password is required. Please enter the password to generate test cases.');
+      // Trim and validate password
+      const trimmedPassword = (accessPassword || '').trim();
+      if (!trimmedPassword) {
+        setError('Access password is required. Please enter the password to generate test cases.');
+        setIsGenerating(false);
+        return;
       }
 
       const response = await fetch('/api/generate', {
@@ -87,7 +91,7 @@ const App: React.FC = () => {
           fileSize: file.size,
           format: 'table',
           scenarioTypes: 'functional,edge-case,negative',
-          password: accessPassword,
+          password: trimmedPassword,
         }),
       });
 
@@ -439,9 +443,11 @@ const App: React.FC = () => {
                     type="password"
                     value={accessPassword}
                     onChange={(e) => setAccessPassword(e.target.value)}
-                    placeholder="Enter password to generate test cases"
+                    onBlur={(e) => setAccessPassword(e.target.value.trim())}
+                    placeholder="Enter password (default: demo2024)"
                     className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                     disabled={isGenerating}
+                    autoComplete="off"
                   />
                   <p className="text-xs text-gray-500 mt-2">
                     Password required. Free tier: 1 generation per hour per IP address.
